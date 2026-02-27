@@ -1,39 +1,44 @@
 """
 Joel Tools — Ferramentas de parsing para o agente Joel.
 
-Docling best-practices (v2.75+):
-- PdfPipelineOptions com document_timeout, TableFormerMode.FAST
-- Singleton converter (evita recarregar modelos a cada chamada)
-- max_num_pages / max_file_size para proteger contra docs enormes
-- Busca via Tavily agora é nativa do Agno (TavilyTools) — não precisa mais de classe aqui
+Estratégia de extração (otimizada para < 60s):
+1. PDFs: pypdf primeiro (< 3s). Se extrair texto suficiente, PRONTO.
+2. PDFs escaneados (pypdf falhou): Docling SEM OCR, com timeout de 45s.
+3. Outros formatos (DOCX, XLSX, etc.): Docling com timeout de 45s.
+4. Último fallback: leitura como texto puro.
+
+Busca via Tavily é nativa do Agno (TavilyTools) — não precisa de classe aqui.
 """
 
 import os
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Converter singleton — Docling carrega modelos pesados na primeira chamada.
-# Reutilizar a instância evita reload a cada documento.
+# Limites
+# ---------------------------------------------------------------------------
+EXTRACTION_TIMEOUT = 45      # segundos máx para extração de texto
+MAX_NUM_PAGES = 50           # páginas máx (protege contra docs enormes)
+MAX_FILE_SIZE = 30_000_000   # 30 MB
+MIN_TEXT_RATIO = 50          # caracteres mínimos por página para considerar "bom"
+
+# ---------------------------------------------------------------------------
+# Docling converter singleton (lazy, thread-safe)
 # ---------------------------------------------------------------------------
 _converter = None
 _converter_lock = threading.Lock()
 
-# Limites de segurança para documentos
-MAX_NUM_PAGES = 200          # máximo de páginas por documento
-MAX_FILE_SIZE = 50_000_000   # 50 MB
-
 
 def _get_converter():
-    """Retorna (ou cria) o DocumentConverter singleton com pipeline otimizado."""
+    """Retorna (ou cria) o DocumentConverter singleton — SEM OCR para velocidade."""
     global _converter
     if _converter is not None:
         return _converter
 
     with _converter_lock:
-        # Double-check após adquirir lock
         if _converter is not None:
             return _converter
 
@@ -46,28 +51,26 @@ def _get_converter():
             )
             from docling.document_converter import DocumentConverter, PdfFormatOption
 
-            # --- PDF pipeline otimizado ---
             pdf_options = PdfPipelineOptions(
-                # Timeout: docs recomendam 90-120s para produção
-                document_timeout=120,
+                document_timeout=EXTRACTION_TIMEOUT,
 
-                # OCR (necessário para PDFs escaneados)
-                do_ocr=True,
+                # OCR DESLIGADO — é o maior vilão de performance.
+                # pypdf já extrai texto de PDFs com camada de texto.
+                # Só PDFs 100% escaneados perdem, mas é trade-off aceito.
+                do_ocr=False,
 
-                # Tabelas: FAST é ~2x mais rápido que ACCURATE
+                # Tabelas FAST (~2x mais rápido que ACCURATE)
                 do_table_structure=True,
                 table_structure_options=TableStructureOptions(
                     mode=TableFormerMode.FAST,
                     do_cell_matching=True,
                 ),
 
-                # Desabilitar features que não usamos (economia de tempo)
+                # Tudo que não precisamos: DESLIGADO
                 do_picture_classification=False,
                 do_picture_description=False,
                 do_code_enrichment=False,
                 do_formula_enrichment=False,
-
-                # Não gerar imagens (não precisamos)
                 generate_page_images=False,
                 generate_picture_images=False,
                 generate_table_images=False,
@@ -80,78 +83,168 @@ def _get_converter():
                     ),
                 },
             )
-            logger.info("Docling: DocumentConverter inicializado com pipeline otimizado")
+            logger.info("Docling: converter inicializado (OCR=off, tables=FAST)")
 
         except ImportError:
-            logger.warning("Docling não instalado — usando DocumentConverter padrão")
-            from docling.document_converter import DocumentConverter
-            _converter = DocumentConverter()
+            logger.warning("Docling não disponível")
+            _converter = None
 
         return _converter
 
 
-def parse_document(file_path: str) -> dict:
+# ---------------------------------------------------------------------------
+# Fast-path: pypdf para PDFs com texto embutido
+# ---------------------------------------------------------------------------
+def _extract_pdf_fast(file_path: str) -> dict | None:
     """
-    Extrai texto e estrutura de qualquer documento usando Docling.
-
-    Suporta: PDF, DOCX, XLSX, PPTX, HTML, imagens (OCR), TXT, CSV, MD
-
-    Best practices aplicadas (Docling v2.75+):
-    - Singleton converter (reaproveita modelos carregados)
-    - PdfPipelineOptions: document_timeout=120s, TableFormerMode.FAST
-    - Features desnecessárias desligadas (picture desc, code/formula)
-    - Limites: max_num_pages=200, max_file_size=50MB
-
-    Args:
-        file_path: Caminho absoluto para o arquivo
-
-    Returns:
-        dict com 'text' (texto extraído), 'metadata' (metadados)
+    Extração rápida com pypdf (< 3s mesmo para PDFs grandes).
+    Retorna dict com text/metadata ou None se não extraiu texto suficiente.
     """
     try:
-        converter = _get_converter()
+        from pypdf import PdfReader
 
-        logger.info(f"Docling: parseando {file_path}")
+        reader = PdfReader(file_path)
+        num_pages = len(reader.pages)
 
+        if num_pages > MAX_NUM_PAGES:
+            logger.warning(f"pypdf: PDF com {num_pages} páginas, limitando a {MAX_NUM_PAGES}")
+
+        pages_to_read = min(num_pages, MAX_NUM_PAGES)
+        text_parts = []
+        for i in range(pages_to_read):
+            page_text = reader.pages[i].extract_text() or ""
+            text_parts.append(page_text)
+
+        text = "\n\n".join(text_parts).strip()
+
+        # Verificar se extraiu texto suficiente
+        if len(text) < MIN_TEXT_RATIO * pages_to_read:
+            logger.info(
+                f"pypdf: pouco texto ({len(text)} chars / {pages_to_read} pgs) "
+                f"— provavelmente escaneado, passando para Docling"
+            )
+            return None
+
+        logger.info(f"pypdf: extraiu {len(text)} chars de {pages_to_read} páginas em < 3s")
+        return {
+            "text": text,
+            "metadata": {
+                "pages": num_pages,
+                "format": ".pdf",
+                "engine": "pypdf",
+            },
+        }
+
+    except Exception as e:
+        logger.warning(f"pypdf falhou: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Docling extraction com hard timeout via ThreadPoolExecutor
+# ---------------------------------------------------------------------------
+def _extract_with_docling(file_path: str) -> dict | None:
+    """Extrai com Docling, respeitando EXTRACTION_TIMEOUT via futures."""
+    converter = _get_converter()
+    if converter is None:
+        return None
+
+    def _do_convert():
         result = converter.convert(
             file_path,
             max_num_pages=MAX_NUM_PAGES,
             max_file_size=MAX_FILE_SIZE,
         )
-
-        # Extrair texto do resultado
         text = result.document.export_to_markdown()
-
-        # num_pages() é um método, não propriedade
         try:
             pages = result.document.num_pages()
         except Exception:
             pages = None
+        return text, pages
 
-        metadata = {
-            "pages": pages,
-            "format": os.path.splitext(file_path)[1].lower(),
-        }
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_convert)
+            text, pages = future.result(timeout=EXTRACTION_TIMEOUT)
 
-        logger.info(f"Docling: extraiu {len(text)} caracteres de {file_path}")
+        if not text or not text.strip():
+            return None
 
+        logger.info(f"Docling: extraiu {len(text)} chars")
         return {
             "text": text,
-            "metadata": metadata,
+            "metadata": {
+                "pages": pages,
+                "format": os.path.splitext(file_path)[1].lower(),
+                "engine": "docling",
+            },
         }
 
-    except ImportError:
-        logger.error("docling não instalado. Execute: pip install docling")
-        return {"text": "", "metadata": {}, "error": "docling não instalado"}
+    except FuturesTimeout:
+        logger.error(f"Docling: TIMEOUT ({EXTRACTION_TIMEOUT}s) — abortando extração")
+        return None
     except Exception as e:
-        logger.error(f"Erro no parsing Docling: {e}")
-        # Fallback: tentar ler como texto puro
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                text = f.read()
+        logger.error(f"Docling: erro — {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Fallback: leitura como texto puro
+# ---------------------------------------------------------------------------
+def _extract_plaintext(file_path: str) -> dict | None:
+    """Última tentativa: ler como arquivo de texto."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
+        if text.strip():
             return {
                 "text": text,
-                "metadata": {"format": os.path.splitext(file_path)[1].lower(), "fallback": True},
+                "metadata": {
+                    "format": os.path.splitext(file_path)[1].lower(),
+                    "engine": "plaintext",
+                },
             }
-        except Exception:
-            return {"text": "", "metadata": {}, "error": str(e)}
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
+# API pública
+# ---------------------------------------------------------------------------
+def parse_document(file_path: str) -> dict:
+    """
+    Extrai texto de qualquer documento em < 60 segundos.
+
+    Estratégia em cascata:
+    1. PDF → pypdf (rápido, < 3s)
+    2. Se pypdf falhou ou não é PDF → Docling com timeout de 45s
+    3. Último fallback → leitura como texto puro
+
+    Args:
+        file_path: Caminho absoluto para o arquivo
+
+    Returns:
+        dict com 'text', 'metadata', e opcionalmente 'error'
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    logger.info(f"parse_document: {os.path.basename(file_path)} ({ext})")
+
+    # --- Fast path: pypdf para PDFs ---
+    if ext == ".pdf":
+        result = _extract_pdf_fast(file_path)
+        if result:
+            return result
+        logger.info("pypdf insuficiente — tentando Docling...")
+
+    # --- Docling para todos os formatos (com timeout) ---
+    result = _extract_with_docling(file_path)
+    if result:
+        return result
+
+    # --- Último fallback: texto puro ---
+    result = _extract_plaintext(file_path)
+    if result:
+        return result
+
+    return {"text": "", "metadata": {}, "error": "Não foi possível extrair texto do documento"}

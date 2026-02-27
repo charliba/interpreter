@@ -35,7 +35,7 @@ from .joel.report_generator import (
 logger = logging.getLogger(__name__)
 
 # Timeout máximo para processamento (segundos)
-PROCESSING_TIMEOUT = int(os.environ.get("JOEL_TIMEOUT", 300))  # 5 min default
+PROCESSING_TIMEOUT = int(os.environ.get("JOEL_TIMEOUT", 120))  # 2 min hard limit
 
 
 @login_required
@@ -206,7 +206,7 @@ def process_analysis(analysis_id: int):
         else:
             analysis.status = AnalysisRequest.Status.EXTRACTING
             analysis.save(update_fields=["status"])
-            analysis.append_log("Iniciando extração de texto com Docling...")
+            analysis.append_log("Iniciando extração de texto (pypdf → Docling → fallback)...")
             analysis.append_log(f"Arquivo: {analysis.document.original_filename} ({analysis.document.file_size_display})")
             
             file_path = analysis.document.file.path
@@ -214,9 +214,12 @@ def process_analysis(analysis_id: int):
             
             extracted_text = parsed.get("text", "")
             metadata = parsed.get("metadata", {})
-            analysis.append_log(f"Extração concluída: {len(extracted_text)} caracteres extraídos")
-            if metadata.get("num_pages"):
-                analysis.append_log(f"Páginas detectadas: {metadata['num_pages']}")
+            engine = metadata.get("engine", "desconhecido")
+            analysis.append_log(f"Extração concluída ({engine}): {len(extracted_text)} caracteres")
+            if metadata.get("pages"):
+                analysis.append_log(f"Páginas detectadas: {metadata['pages']}")
+            if parsed.get("error"):
+                analysis.append_log(f"AVISO: {parsed['error']}")
             
             if not extracted_text:
                 analysis.mark_error("Não foi possível extrair texto do documento.")
