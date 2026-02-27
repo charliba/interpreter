@@ -105,6 +105,27 @@ def analysis_status_view(request, analysis_id):
 
 
 @login_required
+def retry_view(request, analysis_id):
+    """Reprocessa uma análise que falhou sem precisar re-submeter tudo."""
+    analysis = get_object_or_404(
+        AnalysisRequest, pk=analysis_id, requested_by=request.user
+    )
+    
+    if analysis.status == AnalysisRequest.Status.ERROR:
+        # Limpar estado anterior
+        analysis.status = AnalysisRequest.Status.PENDING
+        analysis.error_message = ""
+        analysis.save(update_fields=["status", "error_message"])
+        
+        # Limpar relatório anterior se existir
+        Report.objects.filter(analysis=analysis).delete()
+        
+        messages.info(request, "Reprocessando análise...")
+    
+    return redirect("analysis_status", analysis_id=analysis.pk)
+
+
+@login_required
 def analysis_poll_view(request, analysis_id):
     """API endpoint para polling do status (HTMX/AJAX)."""
     analysis = get_object_or_404(

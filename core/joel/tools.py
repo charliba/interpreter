@@ -142,8 +142,14 @@ def parse_document(file_path: str) -> dict:
         # Extrair texto do resultado
         text = result.document.export_to_markdown()
         
+        # num_pages() é um método, não propriedade — precisa chamar()
+        try:
+            pages = result.document.num_pages()
+        except Exception:
+            pages = None
+        
         metadata = {
-            "pages": getattr(result.document, "num_pages", None),
+            "pages": pages,
             "format": os.path.splitext(file_path)[1].lower(),
         }
         
