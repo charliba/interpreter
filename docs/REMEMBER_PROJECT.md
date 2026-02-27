@@ -20,8 +20,10 @@
 | **Database** | SQLite (dev) / PostgreSQL askjoel_db (prod) |
 | **Porta** | 8004 (Gunicorn) |
 | **IA** | Agno + OpenAI gpt-4.1-mini |
+| **Busca** | Tavily (principal) + DuckDuckGo (fallback) |
+| **Tools** | Calculator, YFinance, PubMed, ArXiv (por área/conteúdo) |
+| **Timeout** | 90s agente (ThreadPoolExecutor) / 180s gunicorn |
 | **Parsing** | pypdf (fast) + Docling (fallback, OCR off) |
-| **Busca** | Tavily (controlada pelo agente) |
 | **Email** | admin@askjoel.cloud, contato@askjoel.cloud |
 | **Admin prod** | admin / AskJoel2026! (trocar na primeira oportunidade) |
 
@@ -47,7 +49,9 @@
 Upload → Document + AnalysisRequest criados (status=pending)
   → Thread: process_analysis()
     → ETAPA 1: pypdf (<3s) → Docling fallback (45s) → plaintext
-    → ETAPA 2: Joel (Agno + GPT-4.1-mini + TavilyTools)
+    → ETAPA 2: QueryOptimizer (0s, local) → plano + tool overrides
+              → _build_tools (mínimo necessário)
+              → Joel (Agno + GPT-4.1-mini) com TIMEOUT 90s
     → ETAPA 3: report_generator → PDF/DOCX/XLSX/TXT
     → Report salvo, status = completed
   → HTMX polling /analysis/<id>/poll/ a cada 3s
@@ -158,6 +162,30 @@ Estratégia em cascata (core/joel/tools.py):
 
 ### ✅ Tavily é controlada pelo agente
 O agente Joel decide quando pesquisar via TavilyTools. O flag include_market_references do usuário apenas habilita/desabilita a tool — o agente decide se/quando usá-la.
+
+### ✅ QueryOptimizer (core/joel/query_optimizer.py)
+Camada intermediária entre input do usuário e ferramentas do agente:
+- **Zero latência** (processamento local, sem chamada LLM extra)
+- Extrai tópicos-foco do objetivo + texto do documento
+- Detecta necessidade de tools por conteúdo (FINANCE_TRIGGERS, MEDICAL_TRIGGERS, ACADEMIC_TRIGGERS)
+- Gera queries otimizadas por ferramenta (formato diferente para web vs PubMed vs ArXiv)
+- Retorna `QueryPlan` com strategies, tool_overrides, action_plan_md
+- Plano de ação injetado no prompt → Joel sabe O QUE buscar antes de começar
+
+### ✅ Timeout estrito de 90s no joel.run()
+**Problema resolvido (Jul/2025):** Análises levavam 5-15 minutos quando o agente tinha 7+ ferramentas e o prompt dizia "use TODAS". O agent.run() não tinha timeout.
+**Solução:** `concurrent.futures.ThreadPoolExecutor` com 90s timeout. Se exceder, `TimeoutError` é levantado e capturado pela views.py → marca análise como erro.
+
+### ❌ ERRO: Agente lento com muitas ferramentas (5+ min)
+**Data:** Jul/2025
+**Problema:** Com 7 tools (Tavily+DDG+Newspaper4k+Website+YFinance+PubMed+ArXiv+Calculator), análises levavam 5-15 minutos.
+**Causa raiz:** (1) Prompt dizia "use TODAS as ferramentas" → agent fazia 10-20 tool calls. (2) Newspaper4k lê artigos inteiros (5-15s/URL). (3) DuckDuckGo+Tavily = buscas duplicadas. (4) joel.run() sem timeout.
+**Solução:** 
+- Removidos Newspaper4k, WebsiteTools, DuckDuckGo (só como fallback se Tavily falhar)
+- Prompt: "máximo 3-4 chamadas de ferramentas"
+- QueryOptimizer: seleciona APENAS tools relevantes por conteúdo
+- ThreadPoolExecutor: timeout 90s
+**Prevenção:** Nunca dizer "use TODAS" no prompt. Sempre limitar tool calls.
 
 ---
 
