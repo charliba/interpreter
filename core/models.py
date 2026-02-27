@@ -1,12 +1,14 @@
 """
 Models for Interpretador de Documentos — Joel Agent
 
-Three main models:
+Four main models:
 - Document: uploaded file + extracted text
 - AnalysisRequest: user configuration for the analysis
 - Report: generated professional report in multiple formats
+- Suggestion: user suggestions/feedback for platform improvements
 """
 
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -227,3 +229,73 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Relatório #{self.pk} — {self.analysis.document.original_filename}"
+
+
+class Suggestion(models.Model):
+    """Sugestão de melhoria enviada por usuários da plataforma."""
+
+    class Category(models.TextChoices):
+        FEATURE = "feature", "Nova Funcionalidade"
+        UX = "ux", "Melhoria de UX"
+        INTEGRATION = "integration", "Integração"
+        REPORT = "report", "Relatórios"
+        BUG = "bug", "Correção de Bug"
+        OTHER = "other", "Outro"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Baixa"
+        MEDIUM = "medium", "Média"
+        HIGH = "high", "Alta"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendente"
+        REVIEWED = "reviewed", "Analisada"
+        PLANNED = "planned", "Planejada"
+        IMPLEMENTED = "implemented", "Implementada"
+        DECLINED = "declined", "Recusada"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="suggestions",
+        verbose_name="Usuário",
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.FEATURE,
+        verbose_name="Categoria",
+    )
+    title = models.CharField(max_length=200, verbose_name="Título")
+    description = models.TextField(verbose_name="Descrição")
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+        verbose_name="Prioridade",
+        help_text="Definida internamente pela equipe",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Status",
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        verbose_name="Notas internas",
+        help_text="Notas da equipe sobre esta sugestão (invisível ao usuário)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de criação")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última atualização")
+
+    class Meta:
+        verbose_name = "Sugestão de Melhoria"
+        verbose_name_plural = "Sugestões de Melhoria"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        user_label = self.user.username if self.user else "Anônimo"
+        return f"[{self.get_category_display()}] {self.title} — {user_label}"

@@ -12,4 +12,5 @@ urlpatterns = [
     path("report/<int:analysis_id>/", views.report_view, name="report"),
     path("report/<int:analysis_id>/download/<str:format>/", views.download_view, name="download"),
     path("history/", views.history_view, name="history"),
+    path("sugestao/", views.submit_suggestion, name="submit_suggestion"),
 ]

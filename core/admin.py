@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Document, AnalysisRequest, Report
+from .models import Document, AnalysisRequest, Report, Suggestion
 
 
 @admin.register(Document)
@@ -25,3 +25,24 @@ class AnalysisRequestAdmin(admin.ModelAdmin):
 class ReportAdmin(admin.ModelAdmin):
     list_display = ["id", "analysis", "generated_at"]
     readonly_fields = ["generated_at"]
+
+
+@admin.register(Suggestion)
+class SuggestionAdmin(admin.ModelAdmin):
+    list_display = ["title", "category", "user", "priority", "status", "created_at"]
+    list_filter = ["category", "priority", "status", "created_at"]
+    search_fields = ["title", "description", "user__username"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+    list_editable = ["priority", "status"]
+    fieldsets = (
+        ("Sugestão", {
+            "fields": ("id", "user", "category", "title", "description"),
+        }),
+        ("Gestão Interna", {
+            "fields": ("priority", "status", "admin_notes"),
+            "description": "Campos visíveis apenas para administradores.",
+        }),
+        ("Datas", {
+            "fields": ("created_at", "updated_at"),
+        }),
+    )

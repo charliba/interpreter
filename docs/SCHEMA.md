@@ -6,6 +6,7 @@
 erDiagram
     User ||--o{ Document : "uploaded_by"
     User ||--o{ AnalysisRequest : "user"
+    User ||--o{ Suggestion : "user"
     Document ||--o{ AnalysisRequest : "document"
     AnalysisRequest ||--o| Report : "analysis (1:1)"
 
@@ -43,8 +44,10 @@ erDiagram
         string report_type
         string status
         text error_message
+        text processing_log
+        datetime started_at
         datetime created_at
-        datetime updated_at
+        datetime completed_at
     }
 
     Report {
@@ -59,7 +62,20 @@ erDiagram
         file file_docx
         file file_xlsx
         file file_txt
+        datetime generated_at
+    }
+
+    Suggestion {
+        uuid id PK
+        int user FK "SET_NULL"
+        string category
+        string title
+        text description
+        string priority
+        string status
+        text admin_notes
         datetime created_at
+        datetime updated_at
     }
 ```
 
@@ -99,6 +115,26 @@ stateDiagram-v2
 - `en` — English
 - `es` — Español
 
-### status
+### status (AnalysisRequest)
 - `pending` → `extracting` → `analyzing` → `searching` → `generating` → `completed`
 - Qualquer estado pode ir para `error`
+
+### Suggestion.category
+- `feature` — Nova Funcionalidade
+- `ux` — Melhoria de UX
+- `integration` — Integração
+- `report` — Relatórios
+- `bug` — Correção de Bug
+- `other` — Outro
+
+### Suggestion.priority (definida internamente)
+- `low` — Baixa
+- `medium` — Média
+- `high` — Alta
+
+### Suggestion.status (gerenciamento interno)
+- `pending` — Pendente (nova)
+- `reviewed` — Analisada pela equipe
+- `planned` — Planejada para implementação
+- `implemented` — Implementada
+- `declined` — Recusada

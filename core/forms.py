@@ -1,9 +1,9 @@
 """
-core/forms.py — Formulários para upload de documentos e configuração de análise.
+core/forms.py — Formulários para upload de documentos, configuração de análise e sugestões.
 """
 
 from django import forms
-from .models import AnalysisRequest
+from .models import AnalysisRequest, Suggestion
 
 
 INPUT_CLASSES = (
@@ -114,3 +114,26 @@ class AnalysisConfigForm(forms.Form):
         initial=AnalysisRequest.ReportType.ANALITICO,
         widget=forms.Select(attrs={"class": SELECT_CLASSES}),
     )
+
+
+class SuggestionForm(forms.ModelForm):
+    """Formulário para sugestões de melhoria — simples e rápido."""
+
+    class Meta:
+        model = Suggestion
+        fields = ["category", "title", "description"]
+        widgets = {
+            "category": forms.Select(attrs={
+                "class": SELECT_CLASSES,
+            }),
+            "title": forms.TextInput(attrs={
+                "class": INPUT_CLASSES,
+                "placeholder": "Título da sugestão",
+                "maxlength": "200",
+            }),
+            "description": forms.Textarea(attrs={
+                "class": TEXTAREA_CLASSES,
+                "rows": 2,
+                "placeholder": "Descreva com detalhes o que gostaria de ver na plataforma...",
+            }),
+        }

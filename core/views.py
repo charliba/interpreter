@@ -19,9 +19,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.core.files.base import ContentFile
+from django.views.decorators.http import require_POST
 
-from .models import Document, AnalysisRequest, Report
-from .forms import DocumentUploadForm, AnalysisConfigForm
+from .models import Document, AnalysisRequest, Report, Suggestion
+from .forms import DocumentUploadForm, AnalysisConfigForm, SuggestionForm
 from .joel.tools import parse_document
 from .joel.agent import run_analysis
 from .joel.report_generator import (
@@ -462,4 +463,26 @@ def history_view(request):
     return render(request, "pages/history.html", {
         "analyses": analyses,
         "page_title": "Histórico",
+        "suggestion_form": SuggestionForm(),
     })
+
+
+@login_required
+@require_POST
+def submit_suggestion(request):
+    """Recebe sugestão de melhoria do usuário. POST only, redirect back."""
+    form = SuggestionForm(request.POST)
+    if form.is_valid():
+        suggestion = form.save(commit=False)
+        suggestion.user = request.user
+        suggestion.save()
+        logger.info("Sugestão #%s criada por %s: %s", suggestion.pk, request.user.username, suggestion.title)
+        messages.success(request, "Sugestão enviada com sucesso! Analisaremos em breve. Obrigado!")
+    else:
+        messages.error(request, "Preencha todos os campos da sugestão (título e descrição são obrigatórios).")
+    
+    # Redirect back to the referring page, default to history
+    referer = request.META.get("HTTP_REFERER", "")
+    if referer:
+        return redirect(referer)
+    return redirect("history")

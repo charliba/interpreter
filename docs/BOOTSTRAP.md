@@ -92,6 +92,8 @@ interpretador de documentos/
 
 *Tavily é necessário apenas se ativar "referências de mercado" na análise.
 
+**Modelo IA atual:** `gpt-4.1-mini` (otimizado custo/velocidade).
+
 ---
 
 ## ⚠️ Ao Criar Novo Projeto (Reutilizar Docs)

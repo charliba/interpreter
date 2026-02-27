@@ -21,7 +21,7 @@ Este documento descreve todas as variáveis de ambiente utilizadas no projeto.
 | Variável | Obrigatório | Padrão | Descrição |
 |----------|-------------|--------|-----------|
 | `OPENAI_API_KEY` | ✅ | — | API key da OpenAI |
-| `OPENAI_MODEL` | ❌ | `gpt-4o` | Modelo para o agente Joel |
+| `OPENAI_MODEL` | ❌ | `gpt-4.1-mini` | Modelo para o agente Joel |
 
 ## Tavily (Busca na Internet)
 
@@ -44,13 +44,31 @@ Este documento descreve todas as variáveis de ambiente utilizadas no projeto.
 | `CELERY_BROKER_URL` | ❌ | — | URL do broker Redis |
 | `CELERY_RESULT_BACKEND` | ❌ | — | URL do result backend |
 
-## VPS / Deploy (futuro)
+## Processamento
 
 | Variável | Obrigatório | Padrão | Descrição |
 |----------|-------------|--------|-----------|
-| `VPS_HOST` | ❌ | — | IP/hostname do VPS |
-| `VPS_USER` | ❌ | — | Usuário SSH |
-| `VPS_SSH_KEY_PATH` | ❌ | — | Caminho da chave SSH |
+| `JOEL_TIMEOUT` | ❌ | `120` | Timeout máximo em segundos para processamento completo |
+
+## VPS / Deploy
+
+| Variável | Obrigatório | Padrão | Descrição |
+|----------|-------------|--------|-----------|
+| `VPS_HOST` | ❌ | — | IP do VPS (31.97.171.87) |
+| `VPS_USER` | ❌ | — | Usuário SSH (root) |
+| `VPS_PASSWORD` | ❌ | — | Senha SSH (NUNCA no repositório) |
+| `VPS_DOMAIN` | ❌ | — | Domínio (askjoel.cloud) |
+
+## Database (Produção)
+
+| Variável | Obrigatório | Padrão | Descrição |
+|----------|-------------|--------|-----------|
+| `DB_ENGINE` | ❌ | `sqlite3` | `django.db.backends.postgresql` para produção |
+| `DB_NAME` | ❌ | `db.sqlite3` | Nome do banco (`askjoel_db` em produção) |
+| `DB_USER` | ❌ | — | Usuário PostgreSQL (`askjoel_user` em produção) |
+| `DB_PASSWORD` | ❌ | — | Senha do PostgreSQL |
+| `DB_HOST` | ❌ | `localhost` | Host do banco |
+| `DB_PORT` | ❌ | `5432` | Porta do banco |
 
 ## Arquivo de Referência
 
@@ -58,4 +76,18 @@ Copie `.env.example` para `.env` e preencha os valores:
 
 ```bash
 cp .env.example .env
+```
+
+### Variáveis mínimas para dev local:
+```
+SECRET_KEY=<gerar>
+OPENAI_API_KEY=sk-...
+```
+
+### Variáveis adicionais para deploy:
+```
+VPS_HOST=31.97.171.87
+VPS_USER=root
+VPS_PASSWORD=<senha>
+VPS_DOMAIN=askjoel.cloud
 ```
