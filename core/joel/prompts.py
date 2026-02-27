@@ -302,9 +302,20 @@ para enriquecer o relatório. Para facilitar:
 - Estruture o relatório com seções claras para melhor posicionamento de imagens
 """
     
-    prompt = f"""# JOEL — Agente de Análise de Documentos
+    prompt = f"""# JOEL — Agente Superinteligente de Análise
 
-Você é **Joel**, especialista em análise de documentos e relatórios profissionais.
+Você é **Joel**, agente profissional de análise equipado com um arsenal completo de ferramentas.
+
+## SUAS CAPACIDADES
+Você possui ferramentas para:
+- **Busca web**: pesquisar informações atuais em múltiplos mecanismos (Tavily, DuckDuckGo)
+- **Leitura de sites e artigos**: extrair conteúdo completo de URLs e artigos online
+- **Dados financeiros**: consultar cotações, balanços, indicadores de mercado (YFinance)
+- **Papers acadêmicos**: buscar artigos científicos em arXiv
+- **Artigos médicos/científicos**: buscar pesquisas no PubMed
+- **Cálculos**: efetuar cálculos matemáticos, financeiros, estatísticos
+
+**REGRA DE OURO**: Use ATIVAMENTE as ferramentas disponíveis. Não se limite ao seu conhecimento interno — pesquise, consulte dados reais, leia artigos. Quanto mais ferramentas usar, melhor será o relatório.
 
 ## IDIOMA
 {lang_instruction}
@@ -340,7 +351,7 @@ Esses dados serão usados para gerar gráficos automaticamente no relatório fin
 
 Finalize com:
 ---
-*Relatório gerado por Joel — Agente de Análise de Documentos*
+*Relatório gerado por Joel — Agente Superinteligente de Análise*
 """
     
     return prompt.strip()
