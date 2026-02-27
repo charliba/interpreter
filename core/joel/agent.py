@@ -18,17 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def _build_tools(include_market_references: bool) -> list:
-    """Monta lista de tools. TavilyTools só se tiver API key e usuário pediu referências."""
+    """Monta lista de tools. TavilyTools lê TAVILY_API_KEY do ambiente automaticamente."""
     tools = []
     if include_market_references:
-        tavily_key = settings.JOEL_CONFIG.get("TAVILY_API_KEY", "")
-        if tavily_key and not tavily_key.startswith("tvly-COLE"):
-            try:
-                from agno.tools.tavily import TavilyTools
-                tools.append(TavilyTools(api_key=tavily_key, max_results=3))
-                logger.info("TavilyTools adicionado ao agente")
-            except Exception as e:
-                logger.warning(f"TavilyTools indisponível: {e}")
+        try:
+            from agno.tools.tavily import TavilyTools
+            tools.append(TavilyTools())
+            logger.info("TavilyTools adicionado ao agente")
+        except Exception as e:
+            logger.warning(f"TavilyTools indisponível: {e}")
     return tools
 
 
