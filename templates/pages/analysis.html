@@ -153,7 +153,28 @@
     <!-- Info -->
     <div class="mt-6 text-center text-sm text-gray-400">
         <p>Este processo pode levar de 30 segundos a alguns minutos dependendo do tamanho do documento.</p>
+        <!-- Timer -->
+        <p class="mt-2 font-mono text-gray-500" x-data="elapsedTimer()" x-text="display"></p>
     </div>
+    
+    {% if debug %}
+    <!-- Debug Log Panel (apenas em localhost) -->
+    <div class="mt-6" x-data="{ open: false }">
+        <button @click="open = !open" 
+                class="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 mx-auto transition-colors">
+            <svg class="w-3.5 h-3.5 transition-transform" :class="open && 'rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            <span x-text="open ? 'Ocultar log de debug' : 'Mostrar log de debug'"></span>
+        </button>
+        <div x-show="open" x-transition class="mt-3">
+            <div class="bg-gray-900 rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs leading-relaxed"
+                 id="debug-log-container">
+                <pre class="text-green-400 whitespace-pre-wrap" id="debug-log-content">Aguardando logs...</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {% endblock %}
@@ -171,6 +192,22 @@ function analysisProgress() {
             try {
                 const data = JSON.parse(event.detail.xhr.responseText);
                 this.currentStatus = data.status;
+                
+                // Atualizar timer com elapsed do servidor
+                if (data.elapsed !== null && data.elapsed !== undefined) {
+                    window._serverElapsed = data.elapsed;
+                }
+                
+                // Atualizar debug log
+                if (data.processing_log) {
+                    const logEl = document.getElementById('debug-log-content');
+                    if (logEl) {
+                        logEl.textContent = data.processing_log;
+                        // Auto-scroll para o final
+                        const container = document.getElementById('debug-log-container');
+                        if (container) container.scrollTop = container.scrollHeight;
+                    }
+                }
                 
                 if (data.error) {
                     this.errorMessage = data.error_message;
@@ -212,6 +249,36 @@ function analysisProgress() {
             if (this.isActive(step)) return 'bg-blue-100 text-primary';
             if (this.isDone(step)) return 'bg-green-100 text-green-600';
             return 'bg-gray-100 text-gray-400';
+        }
+    }
+}
+
+function elapsedTimer() {
+    return {
+        display: 'Tempo: 0s',
+        _startTime: Date.now(),
+        _interval: null,
+        
+        init() {
+            window._serverElapsed = null;
+            this._interval = setInterval(() => {
+                // Usar elapsed do servidor se disponível, senão contar local
+                let secs;
+                if (window._serverElapsed !== null) {
+                    secs = window._serverElapsed;
+                } else {
+                    secs = Math.floor((Date.now() - this._startTime) / 1000);
+                }
+                const min = Math.floor(secs / 60);
+                const sec = secs % 60;
+                this.display = min > 0 
+                    ? `Tempo: ${min}m ${sec}s`
+                    : `Tempo: ${sec}s`;
+            }, 1000);
+        },
+        
+        destroy() {
+            if (this._interval) clearInterval(this._interval);
         }
     }
 }

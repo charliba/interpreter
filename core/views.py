@@ -10,8 +10,10 @@ Fluxo principal:
 """
 
 import os
+import time
 import logging
 import threading
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -31,6 +33,9 @@ from .joel.report_generator import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Timeout máximo para processamento (segundos)
+PROCESSING_TIMEOUT = int(os.environ.get("JOEL_TIMEOUT", 300))  # 5 min default
 
 
 @login_required
@@ -101,6 +106,7 @@ def analysis_status_view(request, analysis_id):
     return render(request, "pages/analysis.html", {
         "analysis": analysis,
         "page_title": "Analisando...",
+        "debug": settings.DEBUG,
     })
 
 
@@ -115,7 +121,10 @@ def retry_view(request, analysis_id):
         # Limpar estado anterior
         analysis.status = AnalysisRequest.Status.PENDING
         analysis.error_message = ""
-        analysis.save(update_fields=["status", "error_message"])
+        analysis.processing_log = ""
+        analysis.started_at = None
+        analysis.completed_at = None
+        analysis.save(update_fields=["status", "error_message", "processing_log", "started_at", "completed_at"])
         
         # Limpar relatório anterior se existir
         Report.objects.filter(analysis=analysis).delete()
@@ -138,7 +147,12 @@ def analysis_poll_view(request, analysis_id):
         "completed": analysis.status == AnalysisRequest.Status.COMPLETED,
         "error": analysis.status == AnalysisRequest.Status.ERROR,
         "error_message": analysis.error_message,
+        "elapsed": analysis.elapsed_seconds,
     }
+    
+    # Incluir log se DEBUG está ativo
+    if settings.DEBUG:
+        data["processing_log"] = analysis.processing_log or ""
     
     if analysis.status == AnalysisRequest.Status.COMPLETED:
         data["report_url"] = f"/report/{analysis.pk}/"
@@ -154,6 +168,8 @@ def process_analysis(analysis_id: int):
     1. Extrair texto com Docling
     2. Executar análise com Joel (Agno + OpenAI)
     3. Gerar relatório em múltiplos formatos
+    
+    Inclui timeout de PROCESSING_TIMEOUT segundos.
     """
     import django
     django.setup()
@@ -164,26 +180,50 @@ def process_analysis(analysis_id: int):
         logger.error(f"AnalysisRequest {analysis_id} não encontrada")
         return
     
+    start_time = time.time()
+    analysis.mark_started()
+    
+    def check_timeout(step_name: str):
+        """Levanta TimeoutError se excedeu o limite."""
+        elapsed = time.time() - start_time
+        if elapsed > PROCESSING_TIMEOUT:
+            raise TimeoutError(
+                f"Timeout de {PROCESSING_TIMEOUT}s excedido na etapa '{step_name}' "
+                f"(tempo decorrido: {elapsed:.0f}s)"
+            )
+    
     try:
         # === ETAPA 1: Extrair texto ===
         analysis.status = AnalysisRequest.Status.EXTRACTING
         analysis.save(update_fields=["status"])
+        analysis.append_log("Iniciando extração de texto com Docling...")
+        analysis.append_log(f"Arquivo: {analysis.document.original_filename} ({analysis.document.file_size_display})")
         
         file_path = analysis.document.file.path
         parsed = parse_document(file_path)
         
         extracted_text = parsed.get("text", "")
+        metadata = parsed.get("metadata", {})
+        analysis.append_log(f"Extração concluída: {len(extracted_text)} caracteres extraídos")
+        if metadata.get("num_pages"):
+            analysis.append_log(f"Páginas detectadas: {metadata['num_pages']}")
+        
         if not extracted_text:
             analysis.mark_error("Não foi possível extrair texto do documento.")
             return
         
         analysis.document.extracted_text = extracted_text
-        analysis.document.extraction_metadata = parsed.get("metadata", {})
+        analysis.document.extraction_metadata = metadata
         analysis.document.save(update_fields=["extracted_text", "extraction_metadata"])
+        
+        check_timeout("extração")
         
         # === ETAPA 2: Joel analisa ===
         analysis.status = AnalysisRequest.Status.ANALYZING
         analysis.save(update_fields=["status"])
+        analysis.append_log("Enviando para Joel (GPT-4o) analisar...")
+        if analysis.include_market_references:
+            analysis.append_log("Busca de referências de mercado ativada (Tavily)")
         
         result = run_analysis(
             extracted_text=extracted_text,
@@ -198,17 +238,23 @@ def process_analysis(analysis_id: int):
         )
         
         content_markdown = result.get("content_markdown", "")
+        refs = result.get("references", [])
+        analysis.append_log(f"Joel concluiu: {len(content_markdown)} chars de markdown, {len(refs)} referências")
+        
         if not content_markdown:
             analysis.mark_error("Joel não conseguiu gerar o relatório.")
             return
         
+        check_timeout("análise")
+        
         # === ETAPA 3: Gerar formatos ===
         analysis.status = AnalysisRequest.Status.GENERATING
         analysis.save(update_fields=["status"])
+        analysis.append_log("Gerando relatório em múltiplos formatos...")
         
         content_html = markdown_to_html(content_markdown)
         title = f"Relatório — {analysis.document.original_filename}"
-        references = result.get("references", [])
+        references = refs
         
         report = Report.objects.create(
             analysis=analysis,
@@ -227,8 +273,10 @@ def process_analysis(analysis_id: int):
                 ContentFile(pdf_buffer.read()),
                 save=False,
             )
+            analysis.append_log("PDF gerado")
         except Exception as e:
             logger.warning(f"Erro ao gerar PDF: {e}")
+            analysis.append_log(f"AVISO: Falha ao gerar PDF — {e}")
         
         # Gerar DOCX
         try:
@@ -238,8 +286,10 @@ def process_analysis(analysis_id: int):
                 ContentFile(docx_buffer.read()),
                 save=False,
             )
+            analysis.append_log("DOCX gerado")
         except Exception as e:
             logger.warning(f"Erro ao gerar DOCX: {e}")
+            analysis.append_log(f"AVISO: Falha ao gerar DOCX — {e}")
         
         # Gerar XLSX
         try:
@@ -249,8 +299,10 @@ def process_analysis(analysis_id: int):
                 ContentFile(xlsx_buffer.read()),
                 save=False,
             )
+            analysis.append_log("XLSX gerado")
         except Exception as e:
             logger.warning(f"Erro ao gerar XLSX: {e}")
+            analysis.append_log(f"AVISO: Falha ao gerar XLSX — {e}")
         
         # Gerar TXT
         try:
@@ -260,15 +312,25 @@ def process_analysis(analysis_id: int):
                 ContentFile(txt_buffer.read()),
                 save=False,
             )
+            analysis.append_log("TXT gerado")
         except Exception as e:
             logger.warning(f"Erro ao gerar TXT: {e}")
+            analysis.append_log(f"AVISO: Falha ao gerar TXT — {e}")
         
         report.save()
         
         # === CONCLUÍDO ===
+        elapsed = time.time() - start_time
+        analysis.append_log(f"Todos os formatos gerados. Tempo total: {elapsed:.1f}s")
         analysis.mark_completed()
-        logger.info(f"Análise #{analysis.pk} concluída com sucesso")
+        logger.info(f"Análise #{analysis.pk} concluída com sucesso em {elapsed:.1f}s")
         
+    except TimeoutError as e:
+        logger.error(f"Timeout na análise #{analysis_id}: {e}")
+        try:
+            analysis.mark_error(str(e))
+        except Exception:
+            pass
     except Exception as e:
         logger.error(f"Erro na análise #{analysis_id}: {e}", exc_info=True)
         try:

@@ -133,6 +133,13 @@ class AnalysisRequest(models.Model):
         default=Status.PENDING,
     )
     error_message = models.TextField(blank=True)
+    processing_log = models.TextField(
+        blank=True,
+        help_text="Log progressivo do processamento (debug, visível apenas em localhost)",
+    )
+    started_at = models.DateTimeField(
+        null=True, blank=True, help_text="Quando o processamento iniciou"
+    )
     requested_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="analysis_requests"
     )
@@ -147,15 +154,38 @@ class AnalysisRequest(models.Model):
     def __str__(self):
         return f"Análise #{self.pk} — {self.document.original_filename} ({self.get_status_display()})"
 
+    def append_log(self, message: str):
+        """Adiciona mensagem timestamped ao log de processamento."""
+        timestamp = timezone.now().strftime("%H:%M:%S")
+        line = f"[{timestamp}] {message}\n"
+        self.processing_log = (self.processing_log or "") + line
+        self.save(update_fields=["processing_log"])
+
+    @property
+    def elapsed_seconds(self) -> int | None:
+        """Segundos desde o início do processamento."""
+        if not self.started_at:
+            return None
+        end = self.completed_at or timezone.now()
+        return int((end - self.started_at).total_seconds())
+
+    def mark_started(self):
+        self.started_at = timezone.now()
+        self.processing_log = ""
+        self.save(update_fields=["started_at", "processing_log"])
+        self.append_log("Processamento iniciado")
+
     def mark_completed(self):
         self.status = self.Status.COMPLETED
         self.completed_at = timezone.now()
         self.save(update_fields=["status", "completed_at"])
+        self.append_log("Concluído com sucesso!")
 
     def mark_error(self, message):
         self.status = self.Status.ERROR
         self.error_message = message
         self.save(update_fields=["status", "error_message"])
+        self.append_log(f"ERRO: {message}")
 
 
 class Report(models.Model):
