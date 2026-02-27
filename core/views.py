@@ -35,6 +35,7 @@ from .joel.report_generator import (
     generate_txt,
 )
 from .joel.charts import generate_charts_from_markdown
+from .joel.ai_images import generate_report_images
 
 logger = logging.getLogger(__name__)
 
@@ -46,40 +47,87 @@ PROCESSING_TIMEOUT = int(os.environ.get("JOEL_TIMEOUT", 120))  # 2 min hard limi
 def upload_view(request):
     """
     GET: Mostra formulário de upload + configuração.
-    POST: Recebe documento e configuração, inicia análise.
+    POST: Recebe documento(s) e configuração, inicia análise.
+    Suporta 4 modos: document, multi_document, enhancement, free_form.
     """
     if request.method == "POST":
-        upload_form = DocumentUploadForm(request.POST, request.FILES)
         config_form = AnalysisConfigForm(request.POST)
+        upload_form = DocumentUploadForm(request.POST, request.FILES)
         
-        if upload_form.is_valid() and config_form.is_valid():
-            uploaded_file = request.FILES["file"]
+        analysis_mode = request.POST.get("analysis_mode", "document")
+        uploaded_files = request.FILES.getlist("file")
+        
+        if config_form.is_valid():
+            # --- Free form: no document needed ---
+            if analysis_mode == "free_form":
+                analysis = AnalysisRequest.objects.create(
+                    analysis_mode=analysis_mode,
+                    document=None,
+                    user_objective=config_form.cleaned_data["user_objective"],
+                    professional_area=config_form.cleaned_data["professional_area"],
+                    professional_area_detail=config_form.cleaned_data.get("professional_area_detail", ""),
+                    geolocation=config_form.cleaned_data.get("geolocation", ""),
+                    language=config_form.cleaned_data.get("language", "pt-BR"),
+                    include_market_references=config_form.cleaned_data.get("include_market_references", True),
+                    source_count=config_form.cleaned_data.get("source_count", 5),
+                    include_images=config_form.cleaned_data.get("include_images", False),
+                    search_scope=config_form.cleaned_data.get("search_scope", ""),
+                    report_type=config_form.cleaned_data.get("report_type", "analitico"),
+                    requested_by=request.user,
+                )
+                messages.info(request, "Análise livre iniciada! Joel está pesquisando e produzindo seu relatório...")
+                return redirect("analysis_status", analysis_id=analysis.pk)
             
-            # Criar Document
-            doc = Document.objects.create(
-                file=uploaded_file,
-                original_filename=uploaded_file.name,
-                file_type=os.path.splitext(uploaded_file.name)[1].lower().lstrip("."),
-                file_size=uploaded_file.size,
-                uploaded_by=request.user,
-            )
-            
-            # Criar AnalysisRequest
-            analysis = AnalysisRequest.objects.create(
-                document=doc,
-                user_objective=config_form.cleaned_data["user_objective"],
-                professional_area=config_form.cleaned_data["professional_area"],
-                professional_area_detail=config_form.cleaned_data.get("professional_area_detail", ""),
-                geolocation=config_form.cleaned_data.get("geolocation", ""),
-                language=config_form.cleaned_data.get("language", "pt-BR"),
-                include_market_references=config_form.cleaned_data.get("include_market_references", True),
-                search_scope=config_form.cleaned_data.get("search_scope", ""),
-                report_type=config_form.cleaned_data.get("report_type", "analitico"),
-                requested_by=request.user,
-            )
-            
-            messages.info(request, "Documento recebido! Sua análise está sendo processada...")
-            return redirect("analysis_status", analysis_id=analysis.pk)
+            # --- Document-based modes: need at least one file ---
+            if not uploaded_files:
+                messages.error(request, "Envie ao menos um documento para este modo de análise.")
+            else:
+                # Create Document objects for each file
+                docs = []
+                for uf in uploaded_files:
+                    doc = Document.objects.create(
+                        file=uf,
+                        original_filename=uf.name,
+                        file_type=os.path.splitext(uf.name)[1].lower().lstrip("."),
+                        file_size=uf.size,
+                        uploaded_by=request.user,
+                    )
+                    docs.append(doc)
+                
+                primary_doc = docs[0]
+                additional_docs = docs[1:] if len(docs) > 1 else []
+                
+                # Determine effective mode
+                if len(docs) > 1 and analysis_mode == "document":
+                    analysis_mode = "multi_document"
+                
+                analysis = AnalysisRequest.objects.create(
+                    analysis_mode=analysis_mode,
+                    document=primary_doc,
+                    user_objective=config_form.cleaned_data["user_objective"],
+                    professional_area=config_form.cleaned_data["professional_area"],
+                    professional_area_detail=config_form.cleaned_data.get("professional_area_detail", ""),
+                    geolocation=config_form.cleaned_data.get("geolocation", ""),
+                    language=config_form.cleaned_data.get("language", "pt-BR"),
+                    include_market_references=config_form.cleaned_data.get("include_market_references", True),
+                    source_count=config_form.cleaned_data.get("source_count", 5),
+                    include_images=config_form.cleaned_data.get("include_images", False),
+                    search_scope=config_form.cleaned_data.get("search_scope", ""),
+                    report_type="enhancement" if analysis_mode == "enhancement" else config_form.cleaned_data.get("report_type", "analitico"),
+                    requested_by=request.user,
+                )
+                
+                # Add additional documents (M2M requires pk)
+                if additional_docs:
+                    analysis.additional_documents.set(additional_docs)
+                
+                mode_labels = {
+                    "document": "Documento recebido!",
+                    "multi_document": f"{len(docs)} documentos recebidos!",
+                    "enhancement": "Documento recebido para aprimoramento!",
+                }
+                messages.info(request, f"{mode_labels.get(analysis_mode, 'Recebido!')} Sua análise está sendo processada...")
+                return redirect("analysis_status", analysis_id=analysis.pk)
         else:
             messages.error(request, "Verifique os campos e tente novamente.")
     else:
@@ -165,10 +213,11 @@ def process_analysis(analysis_id: int):
     """
     Processa a análise completa (executada em thread/celery).
     
-    Etapas:
-    1. Extrair texto com Docling
-    2. Executar análise com Joel (Agno + OpenAI)
-    3. Gerar relatório em múltiplos formatos
+    Modos suportados:
+    - document: análise de documento único
+    - multi_document: análise conjunta de múltiplos documentos
+    - enhancement: aprimoramento do documento com IA
+    - free_form: análise livre sem documento (apenas pesquisa)
     
     Inclui timeout de PROCESSING_TIMEOUT segundos.
     """
@@ -198,46 +247,70 @@ def process_analysis(analysis_id: int):
             raise InterruptedError("Análise cancelada pelo usuário.")
     
     try:
-        # === ETAPA 1: Extrair texto (skip se já existe) ===
-        existing_text = (analysis.document.extracted_text or "").strip()
+        # === ETAPA 1: Extrair texto ===
+        analysis.status = AnalysisRequest.Status.EXTRACTING
+        analysis.save(update_fields=["status"])
         
-        if existing_text:
-            # Texto já extraído anteriormente
-            analysis.status = AnalysisRequest.Status.EXTRACTING
-            analysis.save(update_fields=["status"])
-            analysis.append_log("Documento já processado anteriormente, aproveitando dados.")
-            extracted_text = existing_text
+        extracted_text = ""
+        
+        if analysis.is_free_form:
+            # Free-form: no document, use objective as the topic
+            analysis.append_log("Modo Análise Livre — sem documento, pesquisando do zero...")
+            extracted_text = ""  # Will rely on Joel + Tavily for research
         else:
-            analysis.status = AnalysisRequest.Status.EXTRACTING
-            analysis.save(update_fields=["status"])
-            analysis.append_log("Aplicando capacidade computacional ao documento...")
-            analysis.append_log(f"Arquivo: {analysis.document.original_filename} ({analysis.document.file_size_display})")
+            # Extract from all documents
+            all_docs = analysis.all_documents
+            analysis.append_log(f"Processando {len(all_docs)} documento(s)...")
             
-            file_path = analysis.document.file.path
-            parsed = parse_document(file_path)
+            text_parts = []
+            for doc in all_docs:
+                existing = (doc.extracted_text or "").strip()
+                if existing:
+                    analysis.append_log(f"  ✓ {doc.original_filename} (já processado)")
+                    text_parts.append(f"### DOCUMENTO: {doc.original_filename}\n\n{existing}")
+                else:
+                    analysis.append_log(f"  → Processando: {doc.original_filename} ({doc.file_size_display})")
+                    try:
+                        parsed = parse_document(doc.file.path)
+                        doc_text = parsed.get("text", "")
+                        metadata = parsed.get("metadata", {})
+                        
+                        if doc_text:
+                            doc.extracted_text = doc_text
+                            doc.extraction_metadata = metadata
+                            doc.save(update_fields=["extracted_text", "extraction_metadata"])
+                            text_parts.append(f"### DOCUMENTO: {doc.original_filename}\n\n{doc_text}")
+                            analysis.append_log(f"    {len(doc_text)} caracteres extraídos")
+                        else:
+                            analysis.append_log(f"    ⚠ Não foi possível extrair texto de {doc.original_filename}")
+                    except Exception as e:
+                        analysis.append_log(f"    ⚠ Erro ao processar {doc.original_filename}: {str(e)[:80]}")
             
-            extracted_text = parsed.get("text", "")
-            metadata = parsed.get("metadata", {})
-            analysis.append_log(f"Documento processado: {len(extracted_text)} caracteres extraídos")
-            if parsed.get("error"):
-                analysis.append_log("Aviso: parte do conteúdo pode requerer processamento adicional.")
+            extracted_text = "\n\n---\n\n".join(text_parts)
             
-            if not extracted_text:
-                analysis.mark_error("Não foi possível extrair texto do documento.")
+            if not extracted_text and not analysis.is_free_form:
+                analysis.mark_error("Não foi possível extrair texto de nenhum documento enviado.")
                 return
             
-            analysis.document.extracted_text = extracted_text
-            analysis.document.extraction_metadata = metadata
-            analysis.document.save(update_fields=["extracted_text", "extraction_metadata"])
+            analysis.append_log(f"Total: {len(extracted_text)} caracteres extraídos de {len(text_parts)} documento(s)")
         
         check_timeout("extração")
         
-        # === ETAPA 2: Joel analisa (busca + relatório integrados) ===
+        # === ETAPA 2: Joel analisa ===
         analysis.status = AnalysisRequest.Status.ANALYZING
         analysis.save(update_fields=["status"])
-        analysis.append_log("Iniciando análise inteligente do conteúdo...")
+        
+        mode_labels = {
+            "document": "análise de documento",
+            "multi_document": "análise multi-documento",
+            "enhancement": "aprimoramento de documento",
+            "free_form": "análise livre com pesquisa",
+        }
+        analysis.append_log(f"Iniciando {mode_labels.get(analysis.analysis_mode, 'análise')}...")
         if analysis.include_market_references:
-            analysis.append_log("Pesquisa de referências de mercado habilitada.")
+            analysis.append_log(f"Pesquisa habilitada — buscando até {analysis.source_count} fontes.")
+        if analysis.include_images:
+            analysis.append_log("Geração de imagens por IA habilitada.")
         
         result = run_analysis(
             extracted_text=extracted_text,
@@ -249,6 +322,9 @@ def process_analysis(analysis_id: int):
             include_market_references=analysis.include_market_references,
             search_scope=analysis.search_scope,
             report_type=analysis.report_type,
+            analysis_mode=analysis.analysis_mode,
+            source_count=analysis.source_count,
+            include_images=analysis.include_images,
         )
         
         content_markdown = result.get("content_markdown", "")
@@ -275,8 +351,37 @@ def process_analysis(analysis_id: int):
         except Exception as e:
             logger.warning(f"Erro ao gerar gráficos: {e}")
         
-        content_html = markdown_to_html(content_markdown, charts_base64=charts_base64)
-        title = f"Relatório — {analysis.document.original_filename}"
+        # Generate AI images if requested
+        ai_images_base64 = []
+        if analysis.include_images:
+            try:
+                ai_images_base64 = generate_report_images(
+                    content_markdown=content_markdown,
+                    professional_area=analysis.professional_area,
+                    analysis_mode=analysis.analysis_mode,
+                    max_images=3,
+                )
+                if ai_images_base64:
+                    analysis.append_log(f"{len(ai_images_base64)} imagens profissionais geradas.")
+            except Exception as e:
+                logger.warning(f"Erro ao gerar imagens: {e}")
+                analysis.append_log("Aviso: imagens de IA indisponíveis para este relatório.")
+        
+        # Combine charts and AI images
+        all_visuals = charts_base64 + ai_images_base64
+        
+        content_html = markdown_to_html(content_markdown, charts_base64=all_visuals)
+        
+        if analysis.document:
+            title = f"Relatório — {analysis.document.original_filename}"
+            if analysis.is_multi_doc:
+                names = ", ".join(analysis.document_names[:3])
+                if len(analysis.document_names) > 3:
+                    names += f" (+{len(analysis.document_names) - 3})"
+                title = f"Relatório — {names}"
+        else:
+            title = f"Relatório — {analysis.user_objective[:60]}"
+        
         references = refs
         
         # Get display labels for area/type
@@ -296,7 +401,7 @@ def process_analysis(analysis_id: int):
         try:
             pdf_buffer = generate_pdf(
                 content_markdown, title,
-                charts_base64=charts_base64,
+                charts_base64=all_visuals,
                 professional_area=area_display,
                 report_type=type_display,
             )
@@ -314,7 +419,7 @@ def process_analysis(analysis_id: int):
         try:
             docx_buffer = generate_docx(
                 content_markdown, title,
-                charts_base64=charts_base64,
+                charts_base64=all_visuals,
                 professional_area=area_display,
                 report_type=type_display,
             )
@@ -332,7 +437,7 @@ def process_analysis(analysis_id: int):
         try:
             xlsx_buffer = generate_xlsx(
                 content_markdown, references, title,
-                charts_base64=charts_base64,
+                charts_base64=all_visuals,
             )
             report.file_xlsx.save(
                 f"relatorio_{analysis.pk}.xlsx",
@@ -397,6 +502,7 @@ def edit_analysis_view(request, analysis_id):
         if config_form.is_valid():
             # Criar nova AnalysisRequest reutilizando o mesmo documento
             new_analysis = AnalysisRequest.objects.create(
+                analysis_mode=original.analysis_mode,
                 document=original.document,
                 user_objective=config_form.cleaned_data["user_objective"],
                 professional_area=config_form.cleaned_data["professional_area"],
@@ -404,10 +510,16 @@ def edit_analysis_view(request, analysis_id):
                 geolocation=config_form.cleaned_data.get("geolocation", ""),
                 language=config_form.cleaned_data.get("language", "pt-BR"),
                 include_market_references=config_form.cleaned_data.get("include_market_references", True),
+                source_count=config_form.cleaned_data.get("source_count", 5),
+                include_images=config_form.cleaned_data.get("include_images", False),
                 search_scope=config_form.cleaned_data.get("search_scope", ""),
                 report_type=config_form.cleaned_data.get("report_type", "analitico"),
                 requested_by=request.user,
             )
+            
+            # Copy additional documents if multi-doc
+            if original.additional_documents.exists():
+                new_analysis.additional_documents.set(original.additional_documents.all())
             
             messages.info(request, "Análise reenviada! Processando com as novas configurações.")
             return redirect("analysis_status", analysis_id=new_analysis.pk)
@@ -416,12 +528,15 @@ def edit_analysis_view(request, analysis_id):
     else:
         # Pré-preencher formulário com dados da análise original
         config_form = AnalysisConfigForm(initial={
+            "analysis_mode": original.analysis_mode,
             "user_objective": original.user_objective,
             "professional_area": original.professional_area,
             "professional_area_detail": original.professional_area_detail,
             "geolocation": original.geolocation,
             "language": original.language,
             "include_market_references": original.include_market_references,
+            "source_count": original.source_count,
+            "include_images": original.include_images,
             "search_scope": original.search_scope,
             "report_type": original.report_type,
         })
@@ -554,7 +669,10 @@ def delete_analysis(request, analysis_id):
     )
     
     doc = analysis.document
-    filename = doc.original_filename
+    filename = doc.original_filename if doc else "Análise Livre"
+    
+    # Collect additional documents
+    additional_docs = list(analysis.additional_documents.all()) if analysis.pk else []
     
     # Deletar relatório e arquivos gerados
     try:
@@ -573,14 +691,16 @@ def delete_analysis(request, analysis_id):
     # Deletar análise
     analysis.delete()
     
-    # Deletar documento se não tem mais análises associadas
-    if not doc.analyses.exists():
-        if doc.file:
-            try:
-                doc.file.delete(save=False)
-            except Exception:
-                pass
-        doc.delete()
+    # Deletar documentos se não tem mais análises associadas
+    all_docs = ([doc] if doc else []) + additional_docs
+    for d in all_docs:
+        if not d.analyses.exists() and not d.additional_analyses.exists():
+            if d.file:
+                try:
+                    d.file.delete(save=False)
+                except Exception:
+                    pass
+            d.delete()
     
     logger.info("Análise de '%s' excluída por %s", filename, request.user.username)
     messages.success(request, f"Análise de \"{filename}\" excluída com sucesso.")

@@ -6,59 +6,132 @@
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-900">Nova Análise</h1>
-        <p class="text-gray-500 mt-1">Envie um documento e o Joel irá analisá-lo para você</p>
+        <p class="text-gray-500 mt-1">Envie documentos ou descreva diretamente o que precisa — o Joel cuida do resto</p>
     </div>
 
     <form method="post" enctype="multipart/form-data" class="space-y-8" x-data="uploadForm()">
         {% csrf_token %}
         
-        <!-- SECTION 1: Upload do Documento -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <!-- MODE SELECTOR (tabs) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-1">
+                <button type="button" 
+                    @click="setMode('document')"
+                    :class="mode === 'document' ? 'bg-gradient-to-r from-[#1e3a5f] to-[#2563eb] text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span class="hidden sm:inline">Documento</span>
+                    <span class="sm:hidden">Doc</span>
+                </button>
+                <button type="button" 
+                    @click="setMode('multi_document')"
+                    :class="mode === 'multi_document' ? 'bg-gradient-to-r from-[#1e3a5f] to-[#2563eb] text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                    <span class="hidden sm:inline">Multi-Documento</span>
+                    <span class="sm:hidden">Multi</span>
+                </button>
+                <button type="button" 
+                    @click="setMode('enhancement')"
+                    :class="mode === 'enhancement' ? 'bg-gradient-to-r from-[#7c3aed] to-[#a855f7] text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                    <span class="hidden sm:inline">Aprimorar</span>
+                    <span class="sm:hidden">Aprim.</span>
+                </button>
+                <button type="button" 
+                    @click="setMode('free_form')"
+                    :class="mode === 'free_form' ? 'bg-gradient-to-r from-[#059669] to-[#34d399] text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    <span class="hidden sm:inline">Análise Livre</span>
+                    <span class="sm:hidden">Livre</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Hidden mode field -->
+        {{ config_form.analysis_mode }}
+        
+        <!-- Mode description banner -->
+        <div class="rounded-lg px-4 py-3 text-sm" 
+             :class="{
+                 'bg-blue-50 text-blue-800': mode === 'document',
+                 'bg-indigo-50 text-indigo-800': mode === 'multi_document',
+                 'bg-purple-50 text-purple-800': mode === 'enhancement',
+                 'bg-emerald-50 text-emerald-800': mode === 'free_form'
+             }">
+            <template x-if="mode === 'document'">
+                <p><strong>Análise de Documento:</strong> Envie um documento e descreva o que quer analisar. Joel produzirá um relatório profissional completo.</p>
+            </template>
+            <template x-if="mode === 'multi_document'">
+                <p><strong>Multi-Documento:</strong> Envie vários documentos de diferentes tipos. Joel analisará todos em conjunto e produzirá um relatório integrado.</p>
+            </template>
+            <template x-if="mode === 'enhancement'">
+                <p><strong>Aprimorar Documento:</strong> Joel pegará seu documento, melhorará o conteúdo, criará imagens com IA e produzirá uma versão premium do material.</p>
+            </template>
+            <template x-if="mode === 'free_form'">
+                <p><strong>Análise Livre:</strong> Sem documento necessário. Descreva o tema/assunto desejado e Joel pesquisará, analisará e produzirá o relatório do zero.</p>
+            </template>
+        </div>
+
+        <!-- SECTION 1: Upload do Documento (hidden in free_form mode) -->
+        <div x-show="mode !== 'free_form'" x-transition class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                1. Documento
+                1. <span x-text="mode === 'multi_document' ? 'Documentos (múltiplos)' : 'Documento'"></span>
             </h2>
             
             <!-- Drop zone -->
             <div class="drop-zone border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary transition-colors"
                  @click="$refs.fileInput.click()"
-                 @dragover.prevent="$el.classList.add('dragover')"
-                 @dragleave.prevent="$el.classList.remove('dragover')"
+                 @dragover.prevent="$el.classList.add('border-blue-400', 'bg-blue-50')"
+                 @dragleave.prevent="$el.classList.remove('border-blue-400', 'bg-blue-50')"
                  @drop.prevent="handleDrop($event)">
                 
-                <template x-if="!fileName">
+                <template x-if="files.length === 0">
                     <div>
                         <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
-                        <p class="text-gray-600 font-medium">Clique ou arraste um documento aqui</p>
+                        <p class="text-gray-600 font-medium" x-text="mode === 'multi_document' ? 'Clique ou arraste seus documentos aqui' : 'Clique ou arraste um documento aqui'"></p>
                         <p class="text-sm text-gray-400 mt-1">PDF, DOCX, XLSX, PPTX, TXT, CSV, imagens, HTML, MD</p>
-                        <p class="text-xs text-gray-400 mt-1">Máximo 50MB</p>
+                        <p class="text-xs text-gray-400 mt-1" x-text="mode === 'multi_document' ? 'Até 10 arquivos, máximo 50MB cada' : 'Máximo 50MB'"></p>
                     </div>
                 </template>
                 
-                <template x-if="fileName">
-                    <div class="flex items-center justify-center gap-3">
-                        <svg class="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        <div class="text-left">
-                            <p class="font-medium text-gray-900" x-text="fileName"></p>
-                            <p class="text-sm text-gray-500" x-text="fileSize"></p>
-                        </div>
-                        <button type="button" @click.stop="clearFile()" class="ml-4 text-gray-400 hover:text-red-500">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+                <template x-if="files.length > 0">
+                    <div class="space-y-2" @click.stop>
+                        <template x-for="(f, idx) in files" :key="idx">
+                            <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <div class="text-left">
+                                        <p class="font-medium text-gray-900 text-sm" x-text="f.name"></p>
+                                        <p class="text-xs text-gray-500" x-text="formatSize(f.size)"></p>
+                                    </div>
+                                </div>
+                                <button type="button" @click="removeFile(idx)" class="text-gray-400 hover:text-red-500 p-1">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </template>
+                        <p class="text-xs text-gray-400 mt-2 cursor-pointer hover:text-blue-500" @click="$refs.fileInput.click()">
+                            + Adicionar mais arquivos
+                        </p>
                     </div>
                 </template>
                 
                 <input type="file" name="file" x-ref="fileInput" @change="handleFile($event)" class="hidden"
+                       :multiple="mode === 'multi_document'"
                        accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.csv,.md,.html,.htm,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
             </div>
             
@@ -74,17 +147,28 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                           d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                2. Diga ao Joel o que você precisa
+                <span x-text="mode === 'free_form' ? '1. Diga ao Joel o que você precisa' : '2. Diga ao Joel o que você precisa'"></span>
             </h2>
             
             <div class="space-y-4">
                 <!-- Objetivo -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        {{ config_form.user_objective.label }} <span class="text-red-500">*</span>
+                        <span x-text="mode === 'free_form' ? 'Descreva o tema do relatório' : mode === 'enhancement' ? 'O que melhorar no documento?' : 'O que você quer analisar?'"></span>
+                        <span class="text-red-500">*</span>
                     </label>
                     {{ config_form.user_objective }}
-                    <p class="text-xs text-gray-400 mt-1">{{ config_form.user_objective.help_text }}</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        <template x-if="mode === 'free_form'">
+                            <span>Descreva o tema completo. Ex: "Relatório sobre tendências de ESG no mercado financeiro brasileiro em 2025"</span>
+                        </template>
+                        <template x-if="mode === 'enhancement'">
+                            <span>Ex: "Melhorar formatação, adicionar imagens profissionais, enriquecer análise com dados de mercado"</span>
+                        </template>
+                        <template x-if="mode !== 'free_form' && mode !== 'enhancement'">
+                            <span>Quanto mais detalhado, melhor o Joel entenderá seu objetivo</span>
+                        </template>
+                    </p>
                     {% if config_form.user_objective.errors %}
                     <p class="text-sm text-red-500 mt-1">{{ config_form.user_objective.errors.0 }}</p>
                     {% endif %}
@@ -107,8 +191,8 @@
                     </div>
                 </div>
                 
-                <!-- Tipo de relatório -->
-                <div>
+                <!-- Tipo de relatório (hidden for enhancement mode) -->
+                <div x-show="mode !== 'enhancement'">
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ config_form.report_type.label }}
                     </label>
@@ -117,14 +201,14 @@
             </div>
         </div>
         
-        <!-- SECTION 3: Configurações de Busca -->
+        <!-- SECTION 3: Configurações de Busca e Relatório -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                          d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
                 </svg>
-                3. Configurações de Busca
+                <span x-text="mode === 'free_form' ? '2. Configurações' : '3. Configurações'"></span>
             </h2>
             
             <div class="space-y-4">
@@ -145,6 +229,21 @@
                     </div>
                 </div>
                 
+                <!-- Source count slider -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Quantidade de fontes: <span class="text-blue-600 font-bold" x-text="sourceCount"></span>
+                    </label>
+                    <input type="range" name="source_count" min="1" max="20" step="1" 
+                           x-model="sourceCount" 
+                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>1 (rápido)</span>
+                        <span>10</span>
+                        <span>20 (completo)</span>
+                    </div>
+                </div>
+                
                 <!-- Referências de mercado -->
                 <div class="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
                     {{ config_form.include_market_references }}
@@ -153,6 +252,17 @@
                             {{ config_form.include_market_references.label }}
                         </label>
                         <p class="text-xs text-gray-500">{{ config_form.include_market_references.help_text }}</p>
+                    </div>
+                </div>
+                
+                <!-- Include images toggle -->
+                <div class="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
+                    {{ config_form.include_images }}
+                    <div>
+                        <label for="id_include_images" class="text-sm font-medium text-gray-700 cursor-pointer">
+                            Incluir imagens no relatório
+                        </label>
+                        <p class="text-xs text-gray-500">Joel buscará imagens profissionais e criará ilustrações com IA para enriquecer o relatório</p>
                     </div>
                 </div>
                 
@@ -170,14 +280,14 @@
         <!-- Submit Button -->
         <div class="flex justify-end">
             <button type="submit" 
-                    :disabled="!fileName"
-                    :class="fileName ? 'bg-primary hover:bg-primary-dark' : 'bg-gray-300 cursor-not-allowed'"
-                    class="px-8 py-3 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                    :disabled="mode !== 'free_form' && files.length === 0"
+                    :class="(mode === 'free_form' || files.length > 0) ? 'bg-gradient-to-r from-[#1e3a5f] to-[#2563eb] hover:from-[#162d4a] hover:to-[#1d4ed8]' : 'bg-gray-300 cursor-not-allowed'"
+                    class="px-8 py-3 text-white font-medium rounded-lg transition-all flex items-center gap-2 shadow-sm">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                           d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
-                Analisar com Joel
+                <span x-text="mode === 'enhancement' ? 'Aprimorar com Joel' : mode === 'free_form' ? 'Gerar Relatório' : 'Analisar com Joel'"></span>
             </button>
         </div>
     </form>
@@ -189,34 +299,72 @@
 <script>
 function uploadForm() {
     return {
-        fileName: '',
-        fileSize: '',
+        mode: '{{ config_form.analysis_mode.value|default:"document" }}',
+        files: [],
+        sourceCount: {{ config_form.source_count.value|default:5 }},
+        
+        setMode(newMode) {
+            this.mode = newMode;
+            document.getElementById('id_analysis_mode').value = newMode;
+            // Clear files when switching to free_form
+            if (newMode === 'free_form') {
+                this.clearFiles();
+            }
+            // In single doc modes, keep only first file
+            if (newMode === 'document' || newMode === 'enhancement') {
+                if (this.files.length > 1) {
+                    this.files = [this.files[0]];
+                    this.syncFileInput();
+                }
+            }
+            // Auto-set report type for enhancement
+            if (newMode === 'enhancement') {
+                const rtSelect = document.getElementById('id_report_type');
+                if (rtSelect) rtSelect.value = 'enhancement';
+            }
+        },
         
         handleFile(event) {
-            const file = event.target.files[0];
-            if (file) {
-                this.fileName = file.name;
-                this.fileSize = this.formatSize(file.size);
+            const newFiles = Array.from(event.target.files);
+            if (this.mode === 'multi_document') {
+                // Append (up to 10)
+                for (const f of newFiles) {
+                    if (this.files.length < 10) this.files.push(f);
+                }
+            } else {
+                // Replace
+                this.files = newFiles.slice(0, 1);
             }
+            this.syncFileInput();
         },
         
         handleDrop(event) {
-            event.currentTarget.classList.remove('dragover');
-            const file = event.dataTransfer.files[0];
-            if (file) {
-                // Set to file input
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.fileInput.files = dt.files;
-                this.fileName = file.name;
-                this.fileSize = this.formatSize(file.size);
+            event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+            const newFiles = Array.from(event.dataTransfer.files);
+            if (this.mode === 'multi_document') {
+                for (const f of newFiles) {
+                    if (this.files.length < 10) this.files.push(f);
+                }
+            } else {
+                this.files = newFiles.slice(0, 1);
             }
+            this.syncFileInput();
         },
         
-        clearFile() {
-            this.$refs.fileInput.value = '';
-            this.fileName = '';
-            this.fileSize = '';
+        removeFile(idx) {
+            this.files.splice(idx, 1);
+            this.syncFileInput();
+        },
+        
+        clearFiles() {
+            this.files = [];
+            this.syncFileInput();
+        },
+        
+        syncFileInput() {
+            const dt = new DataTransfer();
+            this.files.forEach(f => dt.items.add(f));
+            this.$refs.fileInput.files = dt.files;
         },
         
         formatSize(bytes) {

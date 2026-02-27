@@ -55,6 +55,12 @@ class AnalysisRequest(models.Model):
     """Configuração da análise solicitada pelo usuário."""
 
     # === Choices ===
+    class AnalysisMode(models.TextChoices):
+        DOCUMENT = "document", "Análise de Documento"
+        MULTI_DOCUMENT = "multi_document", "Análise Multi-Documento"
+        ENHANCEMENT = "enhancement", "Aprimorar Documento"
+        FREE_FORM = "free_form", "Análise Livre (sem documento)"
+
     class ProfessionalArea(models.TextChoices):
         FINANCEIRO = "financeiro", "Financeiro"
         JURIDICO = "juridico", "Jurídico"
@@ -74,6 +80,7 @@ class AnalysisRequest(models.Model):
         RESUMO_EXECUTIVO = "resumo_executivo", "Resumo Executivo"
         TECNICO = "tecnico", "Técnico"
         PARECER = "parecer", "Parecer"
+        ENHANCEMENT = "enhancement", "Aprimoramento de Documento"
 
     class Language(models.TextChoices):
         PT_BR = "pt-BR", "Português (Brasil)"
@@ -91,8 +98,20 @@ class AnalysisRequest(models.Model):
         ERROR = "error", "Erro"
 
     # === Fields ===
+    analysis_mode = models.CharField(
+        max_length=20,
+        choices=AnalysisMode.choices,
+        default=AnalysisMode.DOCUMENT,
+        help_text="Modo de análise: documento, multi-documento, aprimoramento ou livre",
+    )
     document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name="analyses"
+        Document, on_delete=models.CASCADE, related_name="analyses",
+        null=True, blank=True,
+        help_text="Documento principal (obrigatório exceto em modo livre)",
+    )
+    additional_documents = models.ManyToManyField(
+        Document, blank=True, related_name="additional_analyses",
+        help_text="Documentos adicionais para análise conjunta",
     )
     user_objective = models.TextField(
         help_text="Descreva o que você quer analisar neste documento"
@@ -130,6 +149,14 @@ class AnalysisRequest(models.Model):
         choices=ReportType.choices,
         default=ReportType.ANALITICO,
     )
+    source_count = models.PositiveIntegerField(
+        default=5,
+        help_text="Número desejado de fontes/referências a incluir no relatório",
+    )
+    include_images = models.BooleanField(
+        default=False,
+        help_text="Incluir imagens profissionais e geradas por IA no relatório",
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -155,7 +182,36 @@ class AnalysisRequest(models.Model):
         verbose_name_plural = "Solicitações de Análise"
 
     def __str__(self):
-        return f"Análise #{self.pk} — {self.document.original_filename} ({self.get_status_display()})"
+        if self.document:
+            return f"Análise #{self.pk} — {self.document.original_filename} ({self.get_status_display()})"
+        return f"Análise #{self.pk} — Análise Livre ({self.get_status_display()})"
+
+    @property
+    def all_documents(self):
+        """Retorna todos os documentos associados (principal + adicionais)."""
+        docs = []
+        if self.document:
+            docs.append(self.document)
+        if self.pk:  # M2M needs pk
+            docs.extend(self.additional_documents.all())
+        return docs
+
+    @property
+    def document_names(self):
+        """Nomes dos documentos em lista."""
+        return [d.original_filename for d in self.all_documents]
+
+    @property
+    def is_multi_doc(self):
+        return self.analysis_mode == self.AnalysisMode.MULTI_DOCUMENT
+
+    @property
+    def is_free_form(self):
+        return self.analysis_mode == self.AnalysisMode.FREE_FORM
+
+    @property
+    def is_enhancement(self):
+        return self.analysis_mode == self.AnalysisMode.ENHANCEMENT
 
     def append_log(self, message: str):
         """Adiciona mensagem timestamped ao log de processamento."""

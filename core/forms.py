@@ -26,13 +26,18 @@ CHECKBOX_CLASSES = (
     "focus:ring-blue-500 focus:ring-2"
 )
 
+RANGE_CLASSES = (
+    "w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+)
+
 
 class DocumentUploadForm(forms.Form):
-    """Formulário de upload de documento."""
+    """Formulário de upload de documento (aceita múltiplos arquivos)."""
     
     file = forms.FileField(
         label="Documento",
-        widget=forms.ClearableFileInput(attrs={
+        required=False,  # Not required for free-form mode
+        widget=forms.FileInput(attrs={
             "class": "hidden",
             "id": "file-input",
             "accept": ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.csv,.md,.html,.htm,.png,.jpg,.jpeg,.gif,.bmp,.tiff",
@@ -42,10 +47,17 @@ class DocumentUploadForm(forms.Form):
 
 
 class AnalysisConfigForm(forms.Form):
-    """Formulário de configuração da análise."""
+    """Formulário de configuração da análise — com modos expandidos."""
+    
+    analysis_mode = forms.ChoiceField(
+        label="Modo de Análise",
+        choices=AnalysisRequest.AnalysisMode.choices,
+        initial=AnalysisRequest.AnalysisMode.DOCUMENT,
+        widget=forms.HiddenInput(attrs={"id": "id_analysis_mode"}),
+    )
     
     user_objective = forms.CharField(
-        label="O que você quer analisar neste documento?",
+        label="O que você quer analisar?",
         widget=forms.Textarea(attrs={
             "class": TEXTAREA_CLASSES,
             "rows": 4,
@@ -95,6 +107,30 @@ class AnalysisConfigForm(forms.Form):
         initial=True,
         widget=forms.CheckboxInput(attrs={"class": CHECKBOX_CLASSES}),
         help_text="O Joel pesquisará na internet por benchmarks e referências atuais",
+    )
+    
+    source_count = forms.IntegerField(
+        label="Quantidade de fontes",
+        initial=5,
+        min_value=1,
+        max_value=20,
+        widget=forms.NumberInput(attrs={
+            "class": INPUT_CLASSES,
+            "type": "range",
+            "min": "1",
+            "max": "20",
+            "step": "1",
+            "id": "id_source_count",
+        }),
+        help_text="Quantas fontes/referências incluir no relatório",
+    )
+    
+    include_images = forms.BooleanField(
+        label="Incluir imagens no relatório",
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={"class": CHECKBOX_CLASSES}),
+        help_text="Joel incluirá imagens profissionais e ilustrações geradas por IA",
     )
     
     search_scope = forms.CharField(

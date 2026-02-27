@@ -177,6 +177,47 @@ Gere um parecer profissional fundamentado:
 ### 6. REFERÊNCIAS
 """,
     },
+    "enhancement": {
+        "pt-BR": """
+## MODO: APRIMORAMENTO DE DOCUMENTO
+
+Você recebeu um documento para APRIMORAR. Sua tarefa:
+
+### 1. ANÁLISE DO DOCUMENTO ORIGINAL
+- Identifique estrutura, pontos fortes e fracos
+- Note lacunas de informação
+
+### 2. VERSÃO APRIMORADA
+- Reescreva e melhore TODO o conteúdo
+- Enriqueça com dados adicionais pesquisados
+- Melhore a estrutura e formatação
+- Adicione análises complementares
+- Inclua tabelas comparativas e dados quantitativos
+
+### 3. COMPLEMENTOS
+- Adicione seções que estavam faltando
+- Inclua referências e benchmarks de mercado
+- Sugira melhorias visuais e estruturais
+
+### 4. REFERÊNCIAS ADICIONADAS
+- Fontes que enriquecem o documento original
+
+O resultado deve ser uma versão PREMIUM do documento, mantendo a essência
+mas elevando substancialmente a qualidade, profundidade e apresentação.
+""",
+        "en": """
+## MODE: DOCUMENT ENHANCEMENT
+
+You received a document to ENHANCE. Your task:
+- Rewrite and improve ALL content
+- Enrich with additional researched data
+- Improve structure and formatting
+- Add complementary analyses
+- Add tables and quantitative data
+- Include missing sections
+- Add market references and benchmarks
+""",
+    },
 }
 
 
@@ -186,9 +227,13 @@ def get_system_prompt(
     report_type: str = "analitico",
     geolocation: str = "",
     include_market_references: bool = True,
+    analysis_mode: str = "document",
+    source_count: int = 5,
+    include_images: bool = False,
 ) -> str:
     """
     Gera o system prompt completo para o Joel baseado no contexto da análise.
+    Suporta modos: document, multi_document, enhancement, free_form.
     """
     lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["pt-BR"])
     
@@ -200,7 +245,7 @@ def get_system_prompt(
         report_instruction = report_instructions
     
     market_ref_instruction = ""
-    if include_market_references:
+    if include_market_references or analysis_mode == "free_form":
         market_ref_instruction = f"""
 ## REFERÊNCIAS DE MERCADO
 Você DEVE pesquisar na internet usando a ferramenta de busca para encontrar:
@@ -209,7 +254,52 @@ Você DEVE pesquisar na internet usando a ferramenta de busca para encontrar:
 - Tendências e dados recentes
 {"- Foco em referências da região: " + geolocation if geolocation else "- Buscar referências globais"}
 
+**Meta: incluir pelo menos {source_count} fontes/referências distintas.**
 Cada referência deve incluir: título, URL e resumo do contexto relevante.
+"""
+    
+    # Mode-specific instructions
+    mode_instruction = ""
+    if analysis_mode == "multi_document":
+        mode_instruction = """
+## MODO MULTI-DOCUMENTO
+Você receberá MÚLTIPLOS documentos separados por marcadores.
+- Analise TODOS os documentos em conjunto
+- Identifique conexões e divergências entre eles
+- Crie uma análise cruzada e integrada
+- Compare dados e informações entre documentos
+- Sintetize conclusões que considerem todo o corpus documental
+"""
+    elif analysis_mode == "free_form":
+        mode_instruction = """
+## MODO ANÁLISE LIVRE (SEM DOCUMENTO)
+Não há documento enviado pelo usuário. Você deve:
+- Pesquisar EXTENSIVAMENTE na internet sobre o tema solicitado
+- Coletar dados de múltiplas fontes confiáveis
+- Produzir um relatório completo baseado exclusivamente em pesquisa
+- Incluir a maior quantidade possível de dados quantitativos
+- Citar todas as fontes com links
+"""
+    elif analysis_mode == "enhancement":
+        mode_instruction = """
+## MODO APRIMORAMENTO
+O usuário quer uma versão MELHORADA do documento enviado.
+- Mantenha a essência e o propósito original
+- Melhore significativamente a qualidade da escrita
+- Enriqueça com dados e referências complementares
+- Adicione análises que estavam faltando
+- Produza uma versão premium e profissional
+"""
+    
+    # Image instruction
+    image_instruction = ""
+    if include_images:
+        image_instruction = """
+## IMAGENS
+O sistema irá gerar automaticamente imagens profissionais e ilustrações
+para enriquecer o relatório. Para facilitar:
+- Use descrições visuais quando relevante (ex: "cenário de mercado")
+- Estruture o relatório com seções claras para melhor posicionamento de imagens
 """
     
     prompt = f"""# JOEL — Agente de Análise de Documentos
@@ -221,9 +311,13 @@ Você é **Joel**, especialista em análise de documentos e relatórios profissi
 
 ## ÁREA: {professional_area if professional_area else "Geral"}
 
+{mode_instruction}
+
 {report_instruction}
 
 {market_ref_instruction}
+
+{image_instruction}
 
 ## FORMATAÇÃO
 Use Markdown: headers (##, ###), **negrito**, tabelas, listas numeradas, links [título](URL), separadores (---).
@@ -242,6 +336,7 @@ Esses dados serão usados para gerar gráficos automaticamente no relatório fin
 - Tom profissional e formal, ao nível de relatórios de relações com investidores
 - Se o documento estiver truncado, mencione a limitação
 - Priorize análise fundamentada com dados e referências verificáveis
+- **Meta de fontes: {source_count} referências distintas**
 
 Finalize com:
 ---

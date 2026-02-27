@@ -51,7 +51,16 @@
                     </div>
                     
                     <div class="min-w-0 flex-1">
-                        <p class="font-medium text-gray-900 truncate">{{ analysis.document.original_filename }}</p>
+                        <p class="font-medium text-gray-900 truncate">
+                            {% if analysis.document %}
+                                {{ analysis.document.original_filename }}
+                                {% if analysis.additional_documents.exists %}
+                                    <span class="text-xs text-gray-400">(+{{ analysis.additional_documents.count }})</span>
+                                {% endif %}
+                            {% else %}
+                                Análise Livre
+                            {% endif %}
+                        </p>
                         <p class="text-sm text-gray-500 truncate mt-0.5">{{ analysis.user_objective|truncatewords:15 }}</p>
                         <div class="flex flex-wrap gap-2 mt-2">
                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full
@@ -61,12 +70,26 @@
                                          {% else %}bg-blue-100 text-blue-700{% endif %}">
                                 {{ analysis.get_status_display }}
                             </span>
+                            {% if analysis.analysis_mode != 'document' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full
+                                         {% if analysis.analysis_mode == 'enhancement' %}bg-purple-100 text-purple-700
+                                         {% elif analysis.analysis_mode == 'free_form' %}bg-emerald-100 text-emerald-700
+                                         {% elif analysis.analysis_mode == 'multi_document' %}bg-indigo-100 text-indigo-700
+                                         {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                {{ analysis.get_analysis_mode_display }}
+                            </span>
+                            {% endif %}
                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                                 {{ analysis.get_professional_area_display }}
                             </span>
                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                                 {{ analysis.get_report_type_display }}
                             </span>
+                            {% if analysis.include_images %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-violet-100 text-violet-700">
+                                📷 Imagens
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
