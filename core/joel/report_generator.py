@@ -59,6 +59,8 @@ ALLOWED_ATTRS = {
     "table": ["class", "style"],
 }
 
+ALLOWED_PROTOCOLS = bleach.ALLOWED_PROTOCOLS | {"data"}
+
 
 def markdown_to_html(markdown_text: str, charts_base64: list[dict] = None) -> str:
     """
@@ -105,7 +107,7 @@ def markdown_to_html(markdown_text: str, charts_base64: list[dict] = None) -> st
         if not inserted:
             html += chart_html
     
-    return bleach.clean(html, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS)
+    return bleach.clean(html, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, protocols=ALLOWED_PROTOCOLS)
 
 
 def generate_pdf(

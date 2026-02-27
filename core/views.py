@@ -367,15 +367,8 @@ def process_analysis(analysis_id: int):
                 logger.warning(f"Erro ao gerar imagens: {e}")
                 analysis.append_log("Aviso: imagens de IA indisponíveis para este relatório.")
         
-        # Combine charts and AI images
-        # charts_base64 = list[dict] with keys: base64, title
-        # ai_images_base64 = list[str] (raw base64 strings) — normalize to dict
-        ai_images_normalized = [
-            {"base64": img, "title": "Imagem IA"} 
-            for img in ai_images_base64 
-            if isinstance(img, str)
-        ]
-        all_visuals = charts_base64 + ai_images_normalized
+        # Combine charts and AI images (both are list[dict] with keys: base64, title)
+        all_visuals = charts_base64 + ai_images_base64
         
         content_html = markdown_to_html(content_markdown, charts_base64=all_visuals)
         

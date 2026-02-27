@@ -133,7 +133,7 @@ def generate_report_images(
     professional_area: str = "",
     analysis_mode: str = "document",
     max_images: int = 3,
-) -> list[str]:
+) -> list[dict]:
     """
     Gera imagens profissionais para o relatório.
     
@@ -143,7 +143,7 @@ def generate_report_images(
     3. Se nenhum disponível, retorna lista vazia (charts.py já gera gráficos)
     
     Returns:
-        Lista de strings base64 PNG/JPEG
+        Lista de dicts: [{"base64": str, "title": str}]
     """
     images = []
     
@@ -164,7 +164,7 @@ def generate_report_images(
         
         image_b64 = generate_dalle_image(prompt, quality="standard")
         if image_b64:
-            images.append(image_b64)
+            images.append({"base64": image_b64, "title": topic[:80]})
             logger.info(f"AI Images: DALL-E imagem {i+1}/{max_images} gerada para: {topic[:50]}")
     
     # --- Fallback to Pixabay if DALL-E didn't work ---
@@ -177,7 +177,7 @@ def generate_report_images(
                 if results:
                     img_data = download_image(results[0]["webformatURL"])
                     if img_data:
-                        images.append(base64.b64encode(img_data).decode())
+                        images.append({"base64": base64.b64encode(img_data).decode(), "title": topic[:80]})
                         logger.info(f"AI Images: Pixabay imagem obtida para: {topic[:50]}")
         except Exception as e:
             logger.warning(f"AI Images: Pixabay fallback falhou: {e}")
