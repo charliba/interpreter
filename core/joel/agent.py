@@ -16,7 +16,7 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from django.conf import settings
 
-from .tools import TavilySearchTool, parse_document
+from .tools import TavilySearchTool
 from .prompts import get_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -31,13 +31,6 @@ def create_joel_agent(
 ) -> Agent:
     """
     Cria uma instância do agente Joel configurada para a análise específica.
-    
-    Args:
-        language: Idioma do relatório (pt-BR, en, es)
-        professional_area: Área profissional da análise
-        report_type: Tipo de relatório (analitico, comparativo, resumo_executivo, tecnico, parecer)
-        geolocation: Localização para referências de mercado
-        include_market_references: Se deve incluir referências de mercado
     """
     config = settings.JOEL_CONFIG
     
@@ -49,9 +42,6 @@ def create_joel_agent(
         include_market_references=include_market_references,
     )
     
-    # Ferramentas disponíveis para o Joel
-    tools = [TavilySearchTool()]
-    
     joel = Agent(
         name="Joel",
         model=OpenAIChat(
@@ -60,13 +50,10 @@ def create_joel_agent(
         ),
         description=(
             "Joel é um agente especialista em análise de documentos. "
-            "Ele interpreta documentos, pesquisa referências na internet, "
-            "e gera relatórios profissionais completos."
+            "Ele interpreta documentos e gera relatórios profissionais completos."
         ),
         instructions=system_prompt,
-        tools=tools,
         markdown=True,
-        show_tool_calls=False,
     )
     
     return joel
@@ -91,7 +78,43 @@ def run_analysis(
     """
     logger.info(f"Joel iniciando análise: area={professional_area}, tipo={report_type}, idioma={language}")
     
-    # Criar o agente Joel
+    # === Busca Tavily (antes do agente, resultados vão no prompt) ===
+    search_results_raw = []
+    references = []
+    search_context = ""
+    
+    if include_market_references:
+        try:
+            searcher = TavilySearchTool()
+            area_desc = professional_area_detail if professional_area_detail else professional_area
+            search_result = searcher.search_market_references(
+                topic=user_objective[:200],
+                professional_area=area_desc,
+                geolocation=geolocation,
+            )
+            search_results_raw = search_result.get("results", [])
+            
+            if search_results_raw:
+                references = [
+                    {"title": r.get("title", ""), "url": r.get("url", "")}
+                    for r in search_results_raw
+                ]
+                search_lines = []
+                for i, r in enumerate(search_results_raw[:8], 1):
+                    search_lines.append(
+                        f"{i}. **{r.get('title', 'Sem título')}**\n"
+                        f"   URL: {r.get('url', '')}\n"
+                        f"   {r.get('content', '')[:300]}"
+                    )
+                search_context = (
+                    "\n\n---\n\n## REFERÊNCIAS DE MERCADO ENCONTRADAS\n\n"
+                    + "\n\n".join(search_lines)
+                )
+                logger.info(f"Tavily: {len(search_results_raw)} referências encontradas")
+        except Exception as e:
+            logger.warning(f"Busca Tavily falhou (prosseguindo sem referências): {e}")
+    
+    # === Criar o agente Joel ===
     joel = create_joel_agent(
         language=language,
         professional_area=professional_area,
@@ -129,7 +152,8 @@ def run_analysis(
 ---
 
 Por favor, analise este documento e gere o relatório profissional completo conforme as instruções do sistema.
-{"Utilize a ferramenta de busca na internet para encontrar referências de mercado relevantes." if include_market_references else ""}
+{"Utilize as referências de mercado fornecidas acima para enriquecer a análise." if include_market_references and search_context else ""}
+{search_context}
 """
     
     try:
@@ -140,9 +164,9 @@ Por favor, analise este documento e gere o relatório profissional completo conf
         
         return {
             "content_markdown": content_markdown,
-            "references": [],
-            "search_results_raw": [],
-            "joel_reasoning": f"Análise concluída com sucesso. Tipo: {report_type}, Área: {area_desc}, Idioma: {language}",
+            "references": references,
+            "search_results_raw": search_results_raw,
+            "joel_reasoning": f"Análise concluída. Tipo: {report_type}, Área: {area_desc}, Idioma: {language}, Referências: {len(references)}",
         }
         
     except Exception as e:
