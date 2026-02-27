@@ -592,7 +592,8 @@ def download_view(request, analysis_id, format):
         messages.error(request, f"Arquivo {format.upper()} não disponível para este relatório.")
         return redirect("report", analysis_id=analysis.pk)
     
-    filename = f"relatorio_{analysis.document.original_filename.rsplit('.', 1)[0]}{extension}"
+    base_name = analysis.document.original_filename.rsplit('.', 1)[0] if analysis.document else "analise_livre"
+    filename = f"relatorio_{base_name}{extension}"
     
     response = HttpResponse(file_field.read(), content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
