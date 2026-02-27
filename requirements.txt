@@ -20,6 +20,12 @@ openpyxl>=3.1.0
 markdown>=3.5
 bleach>=6.0
 
+# === DATA VISUALIZATION ===
+matplotlib>=3.8
+seaborn>=0.13
+plotly>=5.18
+kaleido>=0.2
+
 # === IMAGE PROCESSING ===
 Pillow>=10.0
 

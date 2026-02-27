@@ -34,6 +34,7 @@ from .joel.report_generator import (
     generate_xlsx,
     generate_txt,
 )
+from .joel.charts import generate_charts_from_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -265,9 +266,22 @@ def process_analysis(analysis_id: int):
         analysis.save(update_fields=["status"])
         analysis.append_log("Elaborando relatório profissional em múltiplos formatos...")
         
-        content_html = markdown_to_html(content_markdown)
+        # Generate charts from data in the markdown
+        charts_base64 = []
+        try:
+            charts_base64 = generate_charts_from_markdown(content_markdown, max_charts=4)
+            if charts_base64:
+                analysis.append_log(f"{len(charts_base64)} visualizações geradas automaticamente.")
+        except Exception as e:
+            logger.warning(f"Erro ao gerar gráficos: {e}")
+        
+        content_html = markdown_to_html(content_markdown, charts_base64=charts_base64)
         title = f"Relatório — {analysis.document.original_filename}"
         references = refs
+        
+        # Get display labels for area/type
+        area_display = analysis.get_professional_area_display()
+        type_display = analysis.get_report_type_display()
         
         report = Report.objects.create(
             analysis=analysis,
@@ -280,7 +294,12 @@ def process_analysis(analysis_id: int):
         
         # Gerar PDF
         try:
-            pdf_buffer = generate_pdf(content_markdown, title)
+            pdf_buffer = generate_pdf(
+                content_markdown, title,
+                charts_base64=charts_base64,
+                professional_area=area_display,
+                report_type=type_display,
+            )
             report.file_pdf.save(
                 f"relatorio_{analysis.pk}.pdf",
                 ContentFile(pdf_buffer.read()),
@@ -293,7 +312,12 @@ def process_analysis(analysis_id: int):
         
         # Gerar DOCX
         try:
-            docx_buffer = generate_docx(content_markdown, title)
+            docx_buffer = generate_docx(
+                content_markdown, title,
+                charts_base64=charts_base64,
+                professional_area=area_display,
+                report_type=type_display,
+            )
             report.file_docx.save(
                 f"relatorio_{analysis.pk}.docx",
                 ContentFile(docx_buffer.read()),
@@ -306,7 +330,10 @@ def process_analysis(analysis_id: int):
         
         # Gerar XLSX
         try:
-            xlsx_buffer = generate_xlsx(content_markdown, references, title)
+            xlsx_buffer = generate_xlsx(
+                content_markdown, references, title,
+                charts_base64=charts_base64,
+            )
             report.file_xlsx.save(
                 f"relatorio_{analysis.pk}.xlsx",
                 ContentFile(xlsx_buffer.read()),
