@@ -479,11 +479,16 @@ def process_analysis(analysis_id: int):
     except InterruptedError:
         logger.info(f"Análise #{analysis_id} cancelada pelo usuário")
     except Exception as e:
-        logger.error(f"Erro na análise #{analysis_id}: {e}", exc_info=True)
+        import traceback as tb
+        full_tb = tb.format_exc()
+        logger.error(f"Erro na análise #{analysis_id}: {e}\n{full_tb}")
         try:
+            # Salva o erro real no log da análise para diagnóstico
+            analysis.append_log(f"ERRO: {type(e).__name__}: {str(e)[:300]}")
+            analysis.append_log(f"Traceback: {full_tb[-500:]}")
             analysis.mark_error(
-                "Ocorreu um erro ao processar sua análise. "
-                "Tente novamente ou envie um documento diferente."
+                f"Erro ao processar: {type(e).__name__}: {str(e)[:200]}. "
+                f"Tente novamente ou envie um documento diferente."
             )
         except Exception:
             pass
