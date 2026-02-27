@@ -17,6 +17,20 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-fallback-key-change-in-production")
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+# Production security (ativado quando DEBUG=False)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    CSRF_TRUSTED_ORIGINS = [
+        "https://askjoel.cloud",
+        "https://www.askjoel.cloud",
+    ]
+
 # === APPLICATION DEFINITION ===
 INSTALLED_APPS = [
     "django.contrib.admin",

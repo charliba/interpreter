@@ -1,0 +1,41 @@
+# /etc/systemd/system/askjoel.service
+# Joel — Django + Gunicorn (porta 8004)
+# ⚠️  NÃO afeta beezle.io (8001), aresdev.cloud (8002) nem walinkhub.cloud (8003)
+#
+# Comandos:
+#   systemctl start askjoel
+#   systemctl stop askjoel
+#   systemctl restart askjoel
+#   systemctl status askjoel
+#   journalctl -u askjoel -f
+
+[Unit]
+Description=Joel — Interpretador de Documentos (askjoel.cloud)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+User=root
+Group=root
+WorkingDirectory=/root/askjoel_project
+ExecStart=/root/askjoel_project/venv/bin/gunicorn config.wsgi:application \
+    --bind 127.0.0.1:8004 \
+    --workers 2 \
+    --threads 4 \
+    --timeout 180 \
+    --access-logfile /root/askjoel_project/logs/access.log \
+    --error-logfile /root/askjoel_project/logs/error.log \
+    --capture-output
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/root/askjoel_project/.env
+
+# Security hardening
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/root/askjoel_project
+
+[Install]
+WantedBy=multi-user.target

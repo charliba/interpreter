@@ -11,15 +11,16 @@
 | Item | Valor |
 |------|-------|
 | **Projeto** | Joel — Interpretador de Documentos com IA |
-| **VPS** | N/A (desenvolvimento local) |
-| **Domínio** | N/A (localhost:8004) |
+| **VPS** | Hostinger 2.57.91.91 |
+| **Domínio** | askjoel.cloud |
 | **Framework** | Django 5.1.5 |
 | **Repositório** | github.com/charliba/interpreter (branch: `main`) |
-| **Database** | SQLite (dev) / PostgreSQL (prod futuro) |
-| **Porta** | 8004 |
-| **IA** | Agno + OpenAI GPT-4o |
-| **Parsing** | Docling |
+| **Database** | SQLite (dev) / PostgreSQL (prod) |
+| **Porta** | 8004 (Gunicorn) |
+| **IA** | Agno + OpenAI gpt-4.1-mini |
+| **Parsing** | pypdf (fast) + Docling (fallback, OCR off) |
 | **Busca** | Tavily |
+| **Email** | admin@askjoel.cloud, contato@askjoel.cloud |
 
 ---
 
@@ -56,13 +57,38 @@ Upload → Document + AnalysisRequest criados
 
 ## 🚀 Deploy e Servidor
 
-*Nenhuma entrada ainda — projeto em desenvolvimento local.*
+### ✅ Mapa de portas na VPS
+| Porta | Projeto | Domínio |
+|-------|---------|--------|
+| 8001 | buzzgear | beezle.io |
+| 8002 | aresdev | aresdev.cloud |
+| 8003 | waLink | walinkhub.cloud |
+| 8004 | **Joel** | **askjoel.cloud** |
+
+### ✅ Arquivos de deploy
+- `config/systemd/askjoel.service` → Gunicorn systemd unit
+- `config/nginx/askjoel.cloud.conf` → Nginx reverse proxy + SSL
+- `.env.production` → Template do .env de produção
+- `deploy.sh` → Script completo de deploy (8 etapas)
+
+### ⚠️ NOTA: Docling na VPS
+Docling exige ~1GB+ de dependências ML. Se a VPS tiver pouca RAM, pypdf será o extrator primário (funciona para 90%+ dos PDFs com texto embutido).
+
+### ⚠️ NOTA: Timeout
+`JOEL_TIMEOUT=120` (2 min). O processamento completo (extração + IA + relatório) DEVE completar em 2 minutos ou será cancelado.
 
 ---
 
 ## 🤖 Agente Joel
 
-*Nenhuma entrada ainda.*
+### ✅ Modelo atual: gpt-4.1-mini
+Modelo otimizado para custo/velocidade. Mudamos de gpt-4o → gpt-4o-mini → gpt-4.1-mini.
+
+### ✅ Extração de texto: pypdf primeiro
+Estratégia em cascata:
+1. pypdf (< 3s) para PDFs com texto embutido
+2. Docling sem OCR (< 45s) como fallback
+3. Leitura plain text como último recurso
 
 ---
 
