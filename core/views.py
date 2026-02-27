@@ -228,12 +228,12 @@ def process_analysis(analysis_id: int):
         
         check_timeout("extração")
         
-        # === ETAPA 2: Joel analisa ===
+        # === ETAPA 2: Joel analisa (busca + relatório integrados) ===
         analysis.status = AnalysisRequest.Status.ANALYZING
         analysis.save(update_fields=["status"])
-        analysis.append_log("Enviando para Joel (GPT-4o) analisar...")
+        analysis.append_log(f"Enviando para Joel ({settings.JOEL_CONFIG['OPENAI_MODEL']})...")
         if analysis.include_market_references:
-            analysis.append_log("Busca de referências de mercado ativada (Tavily)")
+            analysis.append_log("Referências de mercado: agente buscará via TavilyTools")
         
         result = run_analysis(
             extracted_text=extracted_text,

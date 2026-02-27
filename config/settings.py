@@ -120,9 +120,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 # === JOEL AGENT SETTINGS ===
 JOEL_CONFIG = {
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-    "OPENAI_MODEL": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+    "OPENAI_MODEL": os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
     "TAVILY_API_KEY": os.getenv("TAVILY_API_KEY", ""),
     "DEFAULT_LANGUAGE": os.getenv("JOEL_DEFAULT_LANGUAGE", "pt-BR"),
-    "MAX_SEARCH_RESULTS": int(os.getenv("JOEL_MAX_SEARCH_RESULTS", "5")),
+    "MAX_SEARCH_RESULTS": int(os.getenv("JOEL_MAX_SEARCH_RESULTS", "3")),
     "SEARCH_DEPTH": os.getenv("JOEL_SEARCH_DEPTH", "basic"),
 }
