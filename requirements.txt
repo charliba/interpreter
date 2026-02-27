@@ -25,5 +25,8 @@ Pillow>=10.0
 # === UTILITIES ===
 requests>=2.31.0
 
+# === DATABASE ===
+psycopg2-binary>=2.9.9
+
 # === FUTURE DEPLOY ===
 gunicorn==23.0.0
