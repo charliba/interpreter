@@ -274,11 +274,12 @@ Você receberá MÚLTIPLOS documentos separados por marcadores.
         mode_instruction = """
 ## MODO ANÁLISE LIVRE (SEM DOCUMENTO)
 Não há documento enviado pelo usuário. Você deve:
-- Pesquisar EXTENSIVAMENTE na internet sobre o tema solicitado
-- Coletar dados de múltiplas fontes confiáveis
+- Pesquisar na internet com 2-3 buscas FOCADAS sobre o tema
+- Coletar dados das fontes mais relevantes encontradas
 - Produzir um relatório completo baseado exclusivamente em pesquisa
-- Incluir a maior quantidade possível de dados quantitativos
+- Incluir dados quantitativos quando disponíveis
 - Citar todas as fontes com links
+- Ser RÁPIDO — máximo 3-4 chamadas de ferramentas
 """
     elif analysis_mode == "enhancement":
         mode_instruction = """
@@ -315,7 +316,7 @@ Você possui ferramentas para:
 - **Artigos médicos/científicos**: buscar pesquisas no PubMed
 - **Cálculos**: efetuar cálculos matemáticos, financeiros, estatísticos
 
-**REGRA DE OURO**: Use ATIVAMENTE as ferramentas disponíveis. Não se limite ao seu conhecimento interno — pesquise, consulte dados reais, leia artigos. Quanto mais ferramentas usar, melhor será o relatório.
+**REGRA DE OURO**: Use as ferramentas disponíveis de forma FOCADA e EFICIENTE. Faça no máximo **3-4 chamadas de ferramentas** no total. Priorize UMA busca bem formulada sobre várias buscas genéricas. Seu tempo é limitado a 90 segundos — seja RÁPIDO e vá direto ao ponto.
 
 ## IDIOMA
 {lang_instruction}
