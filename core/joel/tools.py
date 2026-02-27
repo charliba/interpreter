@@ -92,30 +92,15 @@ class TavilySearchTool:
     ) -> dict:
         """
         Busca especializada por referências de mercado.
-        Formulada especificamente para encontrar dados de mercado, tendências e benchmarks.
+        Uma única busca otimizada (em vez de múltiplas queries lentas).
         """
-        queries = [
-            f"{topic} {professional_area} market analysis {geolocation}".strip(),
-            f"{topic} {professional_area} trends benchmarks {geolocation}".strip(),
-        ]
-        
-        all_results = []
-        for q in queries:
-            result = self.search(q, max_results=5)
-            all_results.extend(result.get("results", []))
-        
-        # Deduplica por URL
-        seen_urls = set()
-        unique_results = []
-        for r in all_results:
-            if r["url"] not in seen_urls:
-                seen_urls.add(r["url"])
-                unique_results.append(r)
+        query = f"{topic} {professional_area} market analysis trends {geolocation}".strip()
+        result = self.search(query, max_results=5, search_depth="basic")
         
         return {
             "topic": topic,
             "area": professional_area,
-            "results": unique_results,
+            "results": result.get("results", []),
         }
 
 

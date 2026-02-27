@@ -129,9 +129,9 @@ def run_analysis(
     user_prompt = f"""
 ## DOCUMENTO PARA ANÁLISE
 
-{extracted_text[:15000]}
+{extracted_text[:8000]}
 
-{"[... documento truncado por tamanho ...]" if len(extracted_text) > 15000 else ""}
+{"[... documento truncado por tamanho ...]" if len(extracted_text) > 8000 else ""}
 
 ---
 

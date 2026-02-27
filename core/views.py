@@ -193,28 +193,38 @@ def process_analysis(analysis_id: int):
             )
     
     try:
-        # === ETAPA 1: Extrair texto ===
-        analysis.status = AnalysisRequest.Status.EXTRACTING
-        analysis.save(update_fields=["status"])
-        analysis.append_log("Iniciando extração de texto com Docling...")
-        analysis.append_log(f"Arquivo: {analysis.document.original_filename} ({analysis.document.file_size_display})")
+        # === ETAPA 1: Extrair texto (skip se já existe) ===
+        existing_text = (analysis.document.extracted_text or "").strip()
         
-        file_path = analysis.document.file.path
-        parsed = parse_document(file_path)
-        
-        extracted_text = parsed.get("text", "")
-        metadata = parsed.get("metadata", {})
-        analysis.append_log(f"Extração concluída: {len(extracted_text)} caracteres extraídos")
-        if metadata.get("num_pages"):
-            analysis.append_log(f"Páginas detectadas: {metadata['num_pages']}")
-        
-        if not extracted_text:
-            analysis.mark_error("Não foi possível extrair texto do documento.")
-            return
-        
-        analysis.document.extracted_text = extracted_text
-        analysis.document.extraction_metadata = metadata
-        analysis.document.save(update_fields=["extracted_text", "extraction_metadata"])
+        if existing_text:
+            # Texto já extraído anteriormente — pular Docling (economiza ~30s)
+            analysis.status = AnalysisRequest.Status.EXTRACTING
+            analysis.save(update_fields=["status"])
+            analysis.append_log("Texto já extraído anteriormente — pulando Docling")
+            analysis.append_log(f"{len(existing_text)} caracteres disponíveis")
+            extracted_text = existing_text
+        else:
+            analysis.status = AnalysisRequest.Status.EXTRACTING
+            analysis.save(update_fields=["status"])
+            analysis.append_log("Iniciando extração de texto com Docling...")
+            analysis.append_log(f"Arquivo: {analysis.document.original_filename} ({analysis.document.file_size_display})")
+            
+            file_path = analysis.document.file.path
+            parsed = parse_document(file_path)
+            
+            extracted_text = parsed.get("text", "")
+            metadata = parsed.get("metadata", {})
+            analysis.append_log(f"Extração concluída: {len(extracted_text)} caracteres extraídos")
+            if metadata.get("num_pages"):
+                analysis.append_log(f"Páginas detectadas: {metadata['num_pages']}")
+            
+            if not extracted_text:
+                analysis.mark_error("Não foi possível extrair texto do documento.")
+                return
+            
+            analysis.document.extracted_text = extracted_text
+            analysis.document.extraction_metadata = metadata
+            analysis.document.save(update_fields=["extracted_text", "extraction_metadata"])
         
         check_timeout("extração")
         
