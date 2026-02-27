@@ -340,6 +340,55 @@ def process_analysis(analysis_id: int):
 
 
 @login_required
+def edit_analysis_view(request, analysis_id):
+    """Exibe formulário pré-preenchido para editar e re-executar uma análise."""
+    original = get_object_or_404(
+        AnalysisRequest, pk=analysis_id, requested_by=request.user
+    )
+    
+    if request.method == "POST":
+        config_form = AnalysisConfigForm(request.POST)
+        
+        if config_form.is_valid():
+            # Criar nova AnalysisRequest reutilizando o mesmo documento
+            new_analysis = AnalysisRequest.objects.create(
+                document=original.document,
+                user_objective=config_form.cleaned_data["user_objective"],
+                professional_area=config_form.cleaned_data["professional_area"],
+                professional_area_detail=config_form.cleaned_data.get("professional_area_detail", ""),
+                geolocation=config_form.cleaned_data.get("geolocation", ""),
+                language=config_form.cleaned_data.get("language", "pt-BR"),
+                include_market_references=config_form.cleaned_data.get("include_market_references", True),
+                search_scope=config_form.cleaned_data.get("search_scope", ""),
+                report_type=config_form.cleaned_data.get("report_type", "analitico"),
+                requested_by=request.user,
+            )
+            
+            messages.info(request, "Análise reenviada! Joel está processando com as novas configurações.")
+            return redirect("analysis_status", analysis_id=new_analysis.pk)
+        else:
+            messages.error(request, "Verifique os campos e tente novamente.")
+    else:
+        # Pré-preencher formulário com dados da análise original
+        config_form = AnalysisConfigForm(initial={
+            "user_objective": original.user_objective,
+            "professional_area": original.professional_area,
+            "professional_area_detail": original.professional_area_detail,
+            "geolocation": original.geolocation,
+            "language": original.language,
+            "include_market_references": original.include_market_references,
+            "search_scope": original.search_scope,
+            "report_type": original.report_type,
+        })
+    
+    return render(request, "pages/edit_analysis.html", {
+        "analysis": original,
+        "config_form": config_form,
+        "page_title": "Editar Análise",
+    })
+
+
+@login_required
 def report_view(request, analysis_id):
     """Exibe o relatório gerado na tela."""
     analysis = get_object_or_404(
