@@ -1,150 +1,145 @@
 """
-Joel Tools — Ferramentas de busca e parsing para o agente Joel.
+Joel Tools — Ferramentas de parsing para o agente Joel.
 
-- TavilySearchTool: busca profunda na internet via Tavily API
-- DoclingParseTool: extrai texto/estrutura de documentos via Docling
+Docling best-practices (v2.75+):
+- PdfPipelineOptions com document_timeout, TableFormerMode.FAST
+- Singleton converter (evita recarregar modelos a cada chamada)
+- max_num_pages / max_file_size para proteger contra docs enormes
+- Busca via Tavily agora é nativa do Agno (TavilyTools) — não precisa mais de classe aqui
 """
 
 import os
 import logging
-from typing import Optional
-from django.conf import settings
+import threading
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Converter singleton — Docling carrega modelos pesados na primeira chamada.
+# Reutilizar a instância evita reload a cada documento.
+# ---------------------------------------------------------------------------
+_converter = None
+_converter_lock = threading.Lock()
 
-class TavilySearchTool:
-    """
-    Ferramenta de busca profunda na internet via Tavily API.
-    Usada pelo Joel para encontrar referências de mercado e contexto.
-    """
-    
-    def __init__(self):
-        config = settings.JOEL_CONFIG
-        self.api_key = config.get("TAVILY_API_KEY", "")
-        self.max_results = config.get("MAX_SEARCH_RESULTS", 10)
-        self.search_depth = config.get("SEARCH_DEPTH", "advanced")
-    
-    def search(
-        self,
-        query: str,
-        geolocation: str = "",
-        max_results: Optional[int] = None,
-        search_depth: Optional[str] = None,
-    ) -> dict:
-        """
-        Executa busca profunda na internet.
-        
-        Args:
-            query: Termo de busca
-            geolocation: Filtro de localização (ex: 'Brazil', 'São Paulo')
-            max_results: Número máximo de resultados
-            search_depth: 'basic' ou 'advanced'
-        
-        Returns:
-            dict com 'results' (lista de {title, url, content}) e 'query'
-        """
+# Limites de segurança para documentos
+MAX_NUM_PAGES = 200          # máximo de páginas por documento
+MAX_FILE_SIZE = 50_000_000   # 50 MB
+
+
+def _get_converter():
+    """Retorna (ou cria) o DocumentConverter singleton com pipeline otimizado."""
+    global _converter
+    if _converter is not None:
+        return _converter
+
+    with _converter_lock:
+        # Double-check após adquirir lock
+        if _converter is not None:
+            return _converter
+
         try:
-            from tavily import TavilyClient
-            
-            client = TavilyClient(api_key=self.api_key)
-            
-            # Adicionar geolocalização à query se especificada
-            search_query = query
-            if geolocation:
-                search_query = f"{query} {geolocation}"
-            
-            response = client.search(
-                query=search_query,
-                max_results=max_results or self.max_results,
-                search_depth=search_depth or self.search_depth,
+            from docling.datamodel.base_models import InputFormat
+            from docling.datamodel.pipeline_options import (
+                PdfPipelineOptions,
+                TableFormerMode,
+                TableStructureOptions,
             )
-            
-            results = []
-            for item in response.get("results", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "url": item.get("url", ""),
-                    "content": item.get("content", ""),
-                    "score": item.get("score", 0),
-                })
-            
-            logger.info(f"Tavily: {len(results)} resultados para '{search_query}'")
-            
-            return {
-                "query": search_query,
-                "results": results,
-                "answer": response.get("answer", ""),
-            }
-            
-        except ImportError:
-            logger.error("tavily-python não instalado. Execute: pip install tavily-python")
-            return {"query": query, "results": [], "answer": "", "error": "tavily não instalado"}
-        except Exception as e:
-            logger.error(f"Erro na busca Tavily: {e}")
-            return {"query": query, "results": [], "answer": "", "error": str(e)}
+            from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    def search_market_references(
-        self,
-        topic: str,
-        professional_area: str,
-        geolocation: str = "",
-    ) -> dict:
-        """
-        Busca especializada por referências de mercado.
-        Uma única busca otimizada (em vez de múltiplas queries lentas).
-        """
-        query = f"{topic} {professional_area} market analysis trends {geolocation}".strip()
-        result = self.search(query, max_results=5, search_depth="basic")
-        
-        return {
-            "topic": topic,
-            "area": professional_area,
-            "results": result.get("results", []),
-        }
+            # --- PDF pipeline otimizado ---
+            pdf_options = PdfPipelineOptions(
+                # Timeout: docs recomendam 90-120s para produção
+                document_timeout=120,
+
+                # OCR (necessário para PDFs escaneados)
+                do_ocr=True,
+
+                # Tabelas: FAST é ~2x mais rápido que ACCURATE
+                do_table_structure=True,
+                table_structure_options=TableStructureOptions(
+                    mode=TableFormerMode.FAST,
+                    do_cell_matching=True,
+                ),
+
+                # Desabilitar features que não usamos (economia de tempo)
+                do_picture_classification=False,
+                do_picture_description=False,
+                do_code_enrichment=False,
+                do_formula_enrichment=False,
+
+                # Não gerar imagens (não precisamos)
+                generate_page_images=False,
+                generate_picture_images=False,
+                generate_table_images=False,
+            )
+
+            _converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(
+                        pipeline_options=pdf_options,
+                    ),
+                },
+            )
+            logger.info("Docling: DocumentConverter inicializado com pipeline otimizado")
+
+        except ImportError:
+            logger.warning("Docling não instalado — usando DocumentConverter padrão")
+            from docling.document_converter import DocumentConverter
+            _converter = DocumentConverter()
+
+        return _converter
 
 
 def parse_document(file_path: str) -> dict:
     """
     Extrai texto e estrutura de qualquer documento usando Docling.
-    
+
     Suporta: PDF, DOCX, XLSX, PPTX, HTML, imagens (OCR), TXT, CSV, MD
-    
+
+    Best practices aplicadas (Docling v2.75+):
+    - Singleton converter (reaproveita modelos carregados)
+    - PdfPipelineOptions: document_timeout=120s, TableFormerMode.FAST
+    - Features desnecessárias desligadas (picture desc, code/formula)
+    - Limites: max_num_pages=200, max_file_size=50MB
+
     Args:
         file_path: Caminho absoluto para o arquivo
-    
+
     Returns:
         dict com 'text' (texto extraído), 'metadata' (metadados)
     """
     try:
-        from docling.document_converter import DocumentConverter
-        
+        converter = _get_converter()
+
         logger.info(f"Docling: parseando {file_path}")
-        
-        converter = DocumentConverter()
-        result = converter.convert(file_path)
-        
+
+        result = converter.convert(
+            file_path,
+            max_num_pages=MAX_NUM_PAGES,
+            max_file_size=MAX_FILE_SIZE,
+        )
+
         # Extrair texto do resultado
         text = result.document.export_to_markdown()
-        
-        # num_pages() é um método, não propriedade — precisa chamar()
+
+        # num_pages() é um método, não propriedade
         try:
             pages = result.document.num_pages()
         except Exception:
             pages = None
-        
+
         metadata = {
             "pages": pages,
             "format": os.path.splitext(file_path)[1].lower(),
         }
-        
+
         logger.info(f"Docling: extraiu {len(text)} caracteres de {file_path}")
-        
+
         return {
             "text": text,
             "metadata": metadata,
         }
-        
+
     except ImportError:
         logger.error("docling não instalado. Execute: pip install docling")
         return {"text": "", "metadata": {}, "error": "docling não instalado"}
