@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Analisando...{% endblock %}
+{% block title %}Processando...{% endblock %}
 
 {% block content %}
 <div class="lg:pl-4 max-w-2xl mx-auto">
     <!-- Header -->
     <div class="mb-8 text-center">
-        <h1 class="text-2xl font-bold text-gray-900">Joel está trabalhando...</h1>
-        <p class="text-gray-500 mt-1">Analisando: <strong>{{ analysis.document.original_filename }}</strong></p>
+        <h1 class="text-2xl font-bold text-gray-900">Processando sua análise</h1>
+        <p class="text-gray-500 mt-1">Documento: <strong>{{ analysis.document.original_filename }}</strong></p>
     </div>
     
     <!-- Progress Card -->
@@ -20,7 +20,7 @@
         
         <!-- Steps -->
         <div class="space-y-6">
-            <!-- Step 1: Extracting -->
+            <!-- Step 1: Processing document -->
             <div class="flex items-start gap-4" :class="getStepClass('extracting')">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
                      :class="getIconClass('extracting')">
@@ -41,13 +41,13 @@
                 </div>
                 <div>
                     <p class="font-medium" :class="isActive('extracting') ? 'text-primary' : isDone('extracting') ? 'text-green-700' : 'text-gray-400'">
-                        Lendo documento com Docling...
+                        Aplicando capacidade computacional ao documento
                     </p>
-                    <p class="text-sm text-gray-400">Extraindo texto, tabelas e estrutura</p>
+                    <p class="text-sm text-gray-400">Lendo e interpretando todas as páginas, tabelas e estruturas</p>
                 </div>
             </div>
             
-            <!-- Step 2: Analyzing -->
+            <!-- Step 2: Intelligent analysis -->
             <div class="flex items-start gap-4" :class="getStepClass('analyzing')">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
                      :class="getIconClass('analyzing')">
@@ -68,13 +68,13 @@
                 </div>
                 <div>
                     <p class="font-medium" :class="isActive('analyzing') ? 'text-primary' : isDone('analyzing') ? 'text-green-700' : 'text-gray-400'">
-                        Joel analisando o conteúdo...
+                        Análise inteligente do conteúdo
                     </p>
-                    <p class="text-sm text-gray-400">Interpretando e formulando busca inteligente</p>
+                    <p class="text-sm text-gray-400">Interpretando dados, cruzando informações e identificando pontos-chave</p>
                 </div>
             </div>
             
-            <!-- Step 3: Searching -->
+            <!-- Step 3: Market research -->
             <div class="flex items-start gap-4" :class="getStepClass('searching')">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
                      :class="getIconClass('searching')">
@@ -95,13 +95,13 @@
                 </div>
                 <div>
                     <p class="font-medium" :class="isActive('searching') ? 'text-primary' : isDone('searching') ? 'text-green-700' : 'text-gray-400'">
-                        Pesquisando referências na internet...
+                        Pesquisa de mercado e referências
                     </p>
-                    <p class="text-sm text-gray-400">Busca profunda via Tavily</p>
+                    <p class="text-sm text-gray-400">Comparando preços, analisando tendências e coletando dados atualizados</p>
                 </div>
             </div>
             
-            <!-- Step 4: Generating -->
+            <!-- Step 4: Report generation -->
             <div class="flex items-start gap-4" :class="getStepClass('generating')">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
                      :class="getIconClass('generating')">
@@ -122,9 +122,9 @@
                 </div>
                 <div>
                     <p class="font-medium" :class="isActive('generating') ? 'text-primary' : isDone('generating') ? 'text-green-700' : 'text-gray-400'">
-                        Gerando relatório profissional...
+                        Elaborando relatório profissional
                     </p>
-                    <p class="text-sm text-gray-400">PDF, DOCX, XLSX e TXT</p>
+                    <p class="text-sm text-gray-400">Formatando resultados em múltiplos formatos para download</p>
                 </div>
             </div>
         </div>
@@ -132,7 +132,7 @@
         <!-- Error message -->
         <template x-if="errorMessage">
             <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-sm font-medium text-red-700">Erro na análise</p>
+                <p class="text-sm font-medium text-red-700">Não foi possível completar a análise</p>
                 <p class="text-sm text-red-600 mt-1" x-text="errorMessage"></p>
                 <div class="mt-3 flex items-center gap-4">
                     <a href="{% url 'analysis_retry' analysis_id=analysis.pk %}" 
@@ -140,7 +140,7 @@
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Reprocessar
+                        Tentar novamente
                     </a>
                     <a href="{% url 'upload' %}" class="text-sm text-gray-500 hover:underline">
                         Nova análise
@@ -150,31 +150,41 @@
         </template>
     </div>
     
-    <!-- Info -->
-    <div class="mt-6 text-center text-sm text-gray-400">
-        <p>Este processo pode levar de 30 segundos a alguns minutos dependendo do tamanho do documento.</p>
-        <!-- Timer -->
-        <p class="mt-2 font-mono text-gray-500" x-data="elapsedTimer()" x-text="display"></p>
+    <!-- Timer + Cancel -->
+    <div class="mt-6 flex flex-col items-center gap-3">
+        <p class="text-sm text-gray-400">
+            Este processo geralmente leva entre 30 segundos e 2 minutos.
+        </p>
+        <p class="font-mono text-sm text-gray-500" x-data="elapsedTimer()" x-text="display"></p>
+        
+        <!-- Cancel button -->
+        <form method="post" action="{% url 'analysis_cancel' analysis_id=analysis.pk %}"
+              x-data="{ confirming: false }">
+            {% csrf_token %}
+            <template x-if="!confirming">
+                <button type="button" @click="confirming = true"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    Cancelar análise
+                </button>
+            </template>
+            <template x-if="confirming">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500">Tem certeza?</span>
+                    <button type="submit"
+                            class="px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+                        Sim, cancelar
+                    </button>
+                    <button type="button" @click="confirming = false"
+                            class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                        Não
+                    </button>
+                </div>
+            </template>
+        </form>
     </div>
-    
-    {% if debug %}
-    <!-- Debug Log Panel (apenas em localhost) -->
-    <div class="mt-6" x-data="{ open: false }">
-        <button @click="open = !open" 
-                class="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 mx-auto transition-colors">
-            <svg class="w-3.5 h-3.5 transition-transform" :class="open && 'rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-            <span x-text="open ? 'Ocultar log de debug' : 'Mostrar log de debug'"></span>
-        </button>
-        <div x-show="open" x-transition class="mt-3">
-            <div class="bg-gray-900 rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs leading-relaxed"
-                 id="debug-log-container">
-                <pre class="text-green-400 whitespace-pre-wrap" id="debug-log-content">Aguardando logs...</pre>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 {% endblock %}
@@ -193,26 +203,17 @@ function analysisProgress() {
                 const data = JSON.parse(event.detail.xhr.responseText);
                 this.currentStatus = data.status;
                 
-                // Atualizar timer com elapsed do servidor
                 if (data.elapsed !== null && data.elapsed !== undefined) {
                     window._serverElapsed = data.elapsed;
                 }
                 
-                // Atualizar debug log
-                if (data.processing_log) {
-                    const logEl = document.getElementById('debug-log-content');
-                    if (logEl) {
-                        logEl.textContent = data.processing_log;
-                        // Auto-scroll para o final
-                        const container = document.getElementById('debug-log-container');
-                        if (container) container.scrollTop = container.scrollHeight;
-                    }
-                }
-                
                 if (data.error) {
                     this.errorMessage = data.error_message;
-                    // Stop polling
                     document.getElementById('progress-card').removeAttribute('hx-get');
+                }
+                
+                if (data.cancelled) {
+                    window.location.href = '{% url "history" %}';
                 }
                 
                 if (data.completed && data.report_url) {
@@ -262,7 +263,6 @@ function elapsedTimer() {
         init() {
             window._serverElapsed = null;
             this._interval = setInterval(() => {
-                // Usar elapsed do servidor se disponível, senão contar local
                 let secs;
                 if (window._serverElapsed !== null) {
                     secs = window._serverElapsed;
@@ -272,7 +272,7 @@ function elapsedTimer() {
                 const min = Math.floor(secs / 60);
                 const sec = secs % 60;
                 this.display = min > 0 
-                    ? `Tempo: ${min}m ${sec}s`
+                    ? `Tempo: ${min}m ${sec.toString().padStart(2, '0')}s`
                     : `Tempo: ${sec}s`;
             }, 1000);
         },

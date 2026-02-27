@@ -11,6 +11,8 @@ urlpatterns = [
     path("analysis/<int:analysis_id>/edit/", views.edit_analysis_view, name="analysis_edit"),
     path("report/<int:analysis_id>/", views.report_view, name="report"),
     path("report/<int:analysis_id>/download/<str:format>/", views.download_view, name="download"),
+    path("analysis/<int:analysis_id>/cancel/", views.cancel_analysis, name="analysis_cancel"),
+    path("analysis/<int:analysis_id>/delete/", views.delete_analysis, name="analysis_delete"),
     path("history/", views.history_view, name="history"),
     path("sugestao/", views.submit_suggestion, name="submit_suggestion"),
 ]

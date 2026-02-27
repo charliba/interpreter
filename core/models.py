@@ -82,11 +82,12 @@ class AnalysisRequest(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pendente"
-        EXTRACTING = "extracting", "Extraindo texto..."
-        ANALYZING = "analyzing", "Joel analisando..."
+        EXTRACTING = "extracting", "Processando documento..."
+        ANALYZING = "analyzing", "Analisando conteúdo..."
         SEARCHING = "searching", "Pesquisando referências..."
         GENERATING = "generating", "Gerando relatório..."
         COMPLETED = "completed", "Concluído"
+        CANCELLED = "cancelled", "Cancelado"
         ERROR = "error", "Erro"
 
     # === Fields ===

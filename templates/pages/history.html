@@ -28,6 +28,7 @@
                     <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
                                 {% if analysis.status == 'completed' %}bg-green-100 text-green-600
                                 {% elif analysis.status == 'error' %}bg-red-100 text-red-600
+                                {% elif analysis.status == 'cancelled' %}bg-gray-100 text-gray-400
                                 {% else %}bg-blue-100 text-primary{% endif %}">
                         {% if analysis.status == 'completed' %}
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -36,6 +37,10 @@
                         {% elif analysis.status == 'error' %}
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        {% elif analysis.status == 'cancelled' %}
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                         </svg>
                         {% else %}
                         <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -52,6 +57,7 @@
                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full
                                          {% if analysis.status == 'completed' %}bg-green-100 text-green-700
                                          {% elif analysis.status == 'error' %}bg-red-100 text-red-700
+                                         {% elif analysis.status == 'cancelled' %}bg-gray-100 text-gray-500
                                          {% else %}bg-blue-100 text-blue-700{% endif %}">
                                 {{ analysis.get_status_display }}
                             </span>
@@ -101,11 +107,35 @@
                         </svg>
                         Editar
                     </a>
+                    {% elif analysis.status == 'cancelled' %}
+                    <a href="{% url 'analysis_retry' analysis_id=analysis.pk %}" 
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Reprocessar
+                    </a>
                     {% else %}
                     <a href="{% url 'analysis_status' analysis_id=analysis.pk %}" 
                        class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-primary text-xs font-medium rounded-lg hover:bg-blue-200 transition-colors">
                         Acompanhar
                     </a>
+                    {% endif %}
+                    
+                    <!-- Delete button (all statuses except active) -->
+                    {% if analysis.status == 'completed' or analysis.status == 'error' or analysis.status == 'cancelled' %}
+                    <form method="post" action="{% url 'analysis_delete' analysis_id=analysis.pk %}" 
+                          class="inline" x-data
+                          @submit.prevent="if(confirm('Excluir esta análise? Esta ação não pode ser desfeita.')) $el.submit()">
+                        {% csrf_token %}
+                        <button type="submit" 
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-gray-400 text-xs font-medium rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                                title="Excluir análise">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </form>
                     {% endif %}
                 </div>
             </div>
@@ -117,7 +147,7 @@
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             <h3 class="text-lg font-medium text-gray-600 mb-2">Nenhuma análise ainda</h3>
-            <p class="text-gray-400 mb-4">Envie seu primeiro documento para o Joel analisar!</p>
+            <p class="text-gray-400 mb-4">Envie seu primeiro documento para análise!</p>
             <a href="{% url 'upload' %}" 
                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-colors">
                 Nova Análise
