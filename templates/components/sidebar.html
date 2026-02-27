@@ -1,0 +1,101 @@
+{% comment %}
+Sidebar — Layout baseado no padrão waLink
+Cores adaptadas: blue/purple para Joel
+{% endcomment %}
+
+<!-- Mobile sidebar toggle -->
+<button @click="sidebarOpen = !sidebarOpen" 
+        class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-sidebar text-white shadow-lg">
+    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+</button>
+
+<!-- Overlay (mobile) -->
+<div x-show="sidebarOpen" @click="sidebarOpen = false"
+     class="lg:hidden fixed inset-0 bg-black/50 z-40" x-cloak></div>
+
+<!-- Sidebar -->
+<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+       class="fixed lg:static inset-y-0 left-0 z-40 w-64 bg-sidebar text-white flex flex-col transition-transform duration-200">
+    
+    <!-- Logo -->
+    <div class="p-6 border-b border-gray-700">
+        <a href="{% url 'upload' %}" class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <div>
+                <span class="text-xl font-bold">Joel</span>
+                <p class="text-xs text-gray-400">Interpretador de Docs</p>
+            </div>
+        </a>
+    </div>
+    
+    <!-- Navigation -->
+    <nav class="flex-1 p-4 space-y-1">
+        <a href="{% url 'upload' %}" 
+           class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                  {% if page_title == 'Nova Análise' %}bg-primary/20 text-primary{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            Nova Análise
+        </a>
+        
+        <a href="{% url 'history' %}" 
+           class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                  {% if page_title == 'Histórico' %}bg-primary/20 text-primary{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Histórico
+        </a>
+        
+        <!-- Separator -->
+        <div class="border-t border-gray-700 my-4"></div>
+        
+        <div class="px-4 py-2">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Info</p>
+        </div>
+        
+        <div class="px-4 py-2 text-xs text-gray-500">
+            <p>Formatos aceitos:</p>
+            <p class="text-gray-400 mt-1">PDF, DOCX, XLSX, PPTX, TXT, CSV, imagens, HTML, MD</p>
+        </div>
+        
+        <div class="px-4 py-2 text-xs text-gray-500">
+            <p>Relatórios em:</p>
+            <p class="text-gray-400 mt-1">PDF, DOCX, XLSX, TXT ou na tela</p>
+        </div>
+    </nav>
+    
+    <!-- User info + Logout -->
+    <div class="p-4 border-t border-gray-700">
+        <div class="flex items-center gap-3 px-4 py-2">
+            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-sm font-bold">
+                {{ user.username|first|upper }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate">{{ user.username }}</p>
+                <p class="text-xs text-gray-400">Porta 8004</p>
+            </div>
+        </div>
+        <form method="post" action="{% url 'logout' %}" class="mt-2">
+            {% csrf_token %}
+            <button type="submit" 
+                    class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Sair
+            </button>
+        </form>
+    </div>
+</aside>

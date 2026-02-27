@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Analisando...{% endblock %}
+
+{% block content %}
+<div class="lg:pl-4 max-w-2xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8 text-center">
+        <h1 class="text-2xl font-bold text-gray-900">Joel está trabalhando...</h1>
+        <p class="text-gray-500 mt-1">Analisando: <strong>{{ analysis.document.original_filename }}</strong></p>
+    </div>
+    
+    <!-- Progress Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8" 
+         id="progress-card"
+         hx-get="{% url 'analysis_poll' analysis_id=analysis.pk %}"
+         hx-trigger="every 3s"
+         hx-swap="none"
+         x-data="analysisProgress()"
+         @htmx:after-request.window="handlePollResponse($event)">
+        
+        <!-- Steps -->
+        <div class="space-y-6">
+            <!-- Step 1: Extracting -->
+            <div class="flex items-start gap-4" :class="getStepClass('extracting')">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                     :class="getIconClass('extracting')">
+                    <template x-if="isActive('extracting')">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </template>
+                    <template x-if="isDone('extracting')">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </template>
+                    <template x-if="isPending('extracting')">
+                        <span class="text-sm font-bold">1</span>
+                    </template>
+                </div>
+                <div>
+                    <p class="font-medium" :class="isActive('extracting') ? 'text-primary' : isDone('extracting') ? 'text-green-700' : 'text-gray-400'">
+                        Lendo documento com Docling...
+                    </p>
+                    <p class="text-sm text-gray-400">Extraindo texto, tabelas e estrutura</p>
+                </div>
+            </div>
+            
+            <!-- Step 2: Analyzing -->
+            <div class="flex items-start gap-4" :class="getStepClass('analyzing')">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                     :class="getIconClass('analyzing')">
+                    <template x-if="isActive('analyzing')">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </template>
+                    <template x-if="isDone('analyzing')">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </template>
+                    <template x-if="isPending('analyzing')">
+                        <span class="text-sm font-bold">2</span>
+                    </template>
+                </div>
+                <div>
+                    <p class="font-medium" :class="isActive('analyzing') ? 'text-primary' : isDone('analyzing') ? 'text-green-700' : 'text-gray-400'">
+                        Joel analisando o conteúdo...
+                    </p>
+                    <p class="text-sm text-gray-400">Interpretando e formulando busca inteligente</p>
+                </div>
+            </div>
+            
+            <!-- Step 3: Searching -->
+            <div class="flex items-start gap-4" :class="getStepClass('searching')">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                     :class="getIconClass('searching')">
+                    <template x-if="isActive('searching')">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </template>
+                    <template x-if="isDone('searching')">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </template>
+                    <template x-if="isPending('searching')">
+                        <span class="text-sm font-bold">3</span>
+                    </template>
+                </div>
+                <div>
+                    <p class="font-medium" :class="isActive('searching') ? 'text-primary' : isDone('searching') ? 'text-green-700' : 'text-gray-400'">
+                        Pesquisando referências na internet...
+                    </p>
+                    <p class="text-sm text-gray-400">Busca profunda via Tavily</p>
+                </div>
+            </div>
+            
+            <!-- Step 4: Generating -->
+            <div class="flex items-start gap-4" :class="getStepClass('generating')">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                     :class="getIconClass('generating')">
+                    <template x-if="isActive('generating')">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </template>
+                    <template x-if="isDone('generating')">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </template>
+                    <template x-if="isPending('generating')">
+                        <span class="text-sm font-bold">4</span>
+                    </template>
+                </div>
+                <div>
+                    <p class="font-medium" :class="isActive('generating') ? 'text-primary' : isDone('generating') ? 'text-green-700' : 'text-gray-400'">
+                        Gerando relatório profissional...
+                    </p>
+                    <p class="text-sm text-gray-400">PDF, DOCX, XLSX e TXT</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error message -->
+        <template x-if="errorMessage">
+            <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-sm font-medium text-red-700">Erro na análise</p>
+                <p class="text-sm text-red-600 mt-1" x-text="errorMessage"></p>
+                <a href="{% url 'upload' %}" class="mt-3 inline-block text-sm text-primary hover:underline">
+                    Tentar novamente
+                </a>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Info -->
+    <div class="mt-6 text-center text-sm text-gray-400">
+        <p>Este processo pode levar de 30 segundos a alguns minutos dependendo do tamanho do documento.</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function analysisProgress() {
+    const steps = ['pending', 'extracting', 'analyzing', 'searching', 'generating', 'completed'];
+    
+    return {
+        currentStatus: '{{ analysis.status }}',
+        errorMessage: '',
+        
+        handlePollResponse(event) {
+            try {
+                const data = JSON.parse(event.detail.xhr.responseText);
+                this.currentStatus = data.status;
+                
+                if (data.error) {
+                    this.errorMessage = data.error_message;
+                    // Stop polling
+                    document.getElementById('progress-card').removeAttribute('hx-get');
+                }
+                
+                if (data.completed && data.report_url) {
+                    window.location.href = data.report_url;
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        },
+        
+        getStepIndex(step) {
+            return steps.indexOf(step);
+        },
+        
+        isActive(step) {
+            return this.currentStatus === step;
+        },
+        
+        isDone(step) {
+            return this.getStepIndex(this.currentStatus) > this.getStepIndex(step);
+        },
+        
+        isPending(step) {
+            return this.getStepIndex(this.currentStatus) < this.getStepIndex(step);
+        },
+        
+        getStepClass(step) {
+            if (this.isActive(step)) return 'opacity-100';
+            if (this.isDone(step)) return 'opacity-100';
+            return 'opacity-50';
+        },
+        
+        getIconClass(step) {
+            if (this.isActive(step)) return 'bg-blue-100 text-primary';
+            if (this.isDone(step)) return 'bg-green-100 text-green-600';
+            return 'bg-gray-100 text-gray-400';
+        }
+    }
+}
+</script>
+{% endblock %}

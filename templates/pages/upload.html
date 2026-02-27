@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Nova Análise{% endblock %}
+
+{% block content %}
+<div class="lg:pl-4">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">Nova Análise</h1>
+        <p class="text-gray-500 mt-1">Envie um documento e o Joel irá analisá-lo para você</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-8" x-data="uploadForm()">
+        {% csrf_token %}
+        
+        <!-- SECTION 1: Upload do Documento -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                1. Documento
+            </h2>
+            
+            <!-- Drop zone -->
+            <div class="drop-zone border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                 @click="$refs.fileInput.click()"
+                 @dragover.prevent="$el.classList.add('dragover')"
+                 @dragleave.prevent="$el.classList.remove('dragover')"
+                 @drop.prevent="handleDrop($event)">
+                
+                <template x-if="!fileName">
+                    <div>
+                        <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-gray-600 font-medium">Clique ou arraste um documento aqui</p>
+                        <p class="text-sm text-gray-400 mt-1">PDF, DOCX, XLSX, PPTX, TXT, CSV, imagens, HTML, MD</p>
+                        <p class="text-xs text-gray-400 mt-1">Máximo 50MB</p>
+                    </div>
+                </template>
+                
+                <template x-if="fileName">
+                    <div class="flex items-center justify-center gap-3">
+                        <svg class="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <div class="text-left">
+                            <p class="font-medium text-gray-900" x-text="fileName"></p>
+                            <p class="text-sm text-gray-500" x-text="fileSize"></p>
+                        </div>
+                        <button type="button" @click.stop="clearFile()" class="ml-4 text-gray-400 hover:text-red-500">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </template>
+                
+                <input type="file" name="file" x-ref="fileInput" @change="handleFile($event)" class="hidden"
+                       accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.csv,.md,.html,.htm,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
+            </div>
+            
+            {% if upload_form.file.errors %}
+            <p class="text-sm text-red-500 mt-2">{{ upload_form.file.errors.0 }}</p>
+            {% endif %}
+        </div>
+        
+        <!-- SECTION 2: Objetivo e Área -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                </svg>
+                2. Diga ao Joel o que você precisa
+            </h2>
+            
+            <div class="space-y-4">
+                <!-- Objetivo -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ config_form.user_objective.label }} <span class="text-red-500">*</span>
+                    </label>
+                    {{ config_form.user_objective }}
+                    <p class="text-xs text-gray-400 mt-1">{{ config_form.user_objective.help_text }}</p>
+                    {% if config_form.user_objective.errors %}
+                    <p class="text-sm text-red-500 mt-1">{{ config_form.user_objective.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Área profissional + Detalhe -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ config_form.professional_area.label }}
+                        </label>
+                        {{ config_form.professional_area }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ config_form.professional_area_detail.label }}
+                        </label>
+                        {{ config_form.professional_area_detail }}
+                        <p class="text-xs text-gray-400 mt-1">{{ config_form.professional_area_detail.help_text }}</p>
+                    </div>
+                </div>
+                
+                <!-- Tipo de relatório -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ config_form.report_type.label }}
+                    </label>
+                    {{ config_form.report_type }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 3: Configurações de Busca -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                3. Configurações de Busca
+            </h2>
+            
+            <div class="space-y-4">
+                <!-- Geolocalização + Idioma -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ config_form.geolocation.label }}
+                        </label>
+                        {{ config_form.geolocation }}
+                        <p class="text-xs text-gray-400 mt-1">{{ config_form.geolocation.help_text }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ config_form.language.label }}
+                        </label>
+                        {{ config_form.language }}
+                    </div>
+                </div>
+                
+                <!-- Referências de mercado -->
+                <div class="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+                    {{ config_form.include_market_references }}
+                    <div>
+                        <label for="id_include_market_references" class="text-sm font-medium text-gray-700 cursor-pointer">
+                            {{ config_form.include_market_references.label }}
+                        </label>
+                        <p class="text-xs text-gray-500">{{ config_form.include_market_references.help_text }}</p>
+                    </div>
+                </div>
+                
+                <!-- Escopo de busca -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ config_form.search_scope.label }}
+                    </label>
+                    {{ config_form.search_scope }}
+                    <p class="text-xs text-gray-400 mt-1">{{ config_form.search_scope.help_text }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Submit Button -->
+        <div class="flex justify-end">
+            <button type="submit" 
+                    :disabled="!fileName"
+                    :class="fileName ? 'bg-primary hover:bg-primary-dark' : 'bg-gray-300 cursor-not-allowed'"
+                    class="px-8 py-3 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Analisar com Joel
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function uploadForm() {
+    return {
+        fileName: '',
+        fileSize: '',
+        
+        handleFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                this.fileName = file.name;
+                this.fileSize = this.formatSize(file.size);
+            }
+        },
+        
+        handleDrop(event) {
+            event.currentTarget.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                // Set to file input
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                this.$refs.fileInput.files = dt.files;
+                this.fileName = file.name;
+                this.fileSize = this.formatSize(file.size);
+            }
+        },
+        
+        clearFile() {
+            this.$refs.fileInput.value = '';
+            this.fileName = '';
+            this.fileSize = '';
+        },
+        
+        formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+    }
+}
+</script>
+{% endblock %}

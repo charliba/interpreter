@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Relatório{% endblock %}
+
+{% block content %}
+<div class="lg:pl-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Relatório</h1>
+            <p class="text-gray-500 mt-1">{{ analysis.document.original_filename }}</p>
+        </div>
+        
+        <!-- Download buttons -->
+        <div class="flex flex-wrap gap-2">
+            {% if report.file_pdf %}
+            <a href="{% url 'download' analysis_id=analysis.pk format='pdf' %}" 
+               class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                PDF
+            </a>
+            {% endif %}
+            
+            {% if report.file_docx %}
+            <a href="{% url 'download' analysis_id=analysis.pk format='docx' %}" 
+               class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                DOCX
+            </a>
+            {% endif %}
+            
+            {% if report.file_xlsx %}
+            <a href="{% url 'download' analysis_id=analysis.pk format='xlsx' %}" 
+               class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                XLSX
+            </a>
+            {% endif %}
+            
+            {% if report.file_txt %}
+            <a href="{% url 'download' analysis_id=analysis.pk format='txt' %}" 
+               class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                TXT
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Analysis Info -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Área</p>
+            <p class="text-sm font-medium text-gray-900">{{ analysis.get_professional_area_display }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Tipo</p>
+            <p class="text-sm font-medium text-gray-900">{{ analysis.get_report_type_display }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Idioma</p>
+            <p class="text-sm font-medium text-gray-900">{{ analysis.get_language_display }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Geolocalização</p>
+            <p class="text-sm font-medium text-gray-900">{{ analysis.geolocation|default:"Global" }}</p>
+        </div>
+    </div>
+    
+    <!-- Report Content -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div class="report-content prose max-w-none">
+            {{ report.content_html|safe }}
+        </div>
+    </div>
+    
+    <!-- References -->
+    {% if report.references %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            Referências Encontradas
+        </h2>
+        <div class="space-y-3">
+            {% for ref in report.references %}
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <span class="text-xs font-bold text-gray-400">{{ forloop.counter }}</span>
+                <div>
+                    <a href="{{ ref.url }}" target="_blank" class="text-sm font-medium text-primary hover:underline">
+                        {{ ref.title }}
+                    </a>
+                    <p class="text-xs text-gray-500 mt-1">{{ ref.content|truncatewords:40 }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Actions -->
+    <div class="flex justify-between items-center mt-6">
+        <a href="{% url 'history' %}" class="text-sm text-gray-500 hover:text-primary transition-colors">
+            &larr; Voltar ao histórico
+        </a>
+        <a href="{% url 'upload' %}" 
+           class="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nova Análise
+        </a>
+    </div>
+</div>
+{% endblock %}

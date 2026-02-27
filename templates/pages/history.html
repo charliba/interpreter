@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Histórico{% endblock %}
+
+{% block content %}
+<div class="lg:pl-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Histórico</h1>
+            <p class="text-gray-500 mt-1">Suas análises anteriores</p>
+        </div>
+        <a href="{% url 'upload' %}" 
+           class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nova Análise
+        </a>
+    </div>
+    
+    <!-- Analysis List -->
+    <div class="space-y-4">
+        {% for analysis in analyses %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-start gap-4 flex-1 min-w-0">
+                    <!-- Icon by status -->
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
+                                {% if analysis.status == 'completed' %}bg-green-100 text-green-600
+                                {% elif analysis.status == 'error' %}bg-red-100 text-red-600
+                                {% else %}bg-blue-100 text-primary{% endif %}">
+                        {% if analysis.status == 'completed' %}
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {% elif analysis.status == 'error' %}
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        {% else %}
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium text-gray-900 truncate">{{ analysis.document.original_filename }}</p>
+                        <p class="text-sm text-gray-500 truncate mt-0.5">{{ analysis.user_objective|truncatewords:15 }}</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full
+                                         {% if analysis.status == 'completed' %}bg-green-100 text-green-700
+                                         {% elif analysis.status == 'error' %}bg-red-100 text-red-700
+                                         {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                {{ analysis.get_status_display }}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {{ analysis.get_professional_area_display }}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {{ analysis.get_report_type_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <p class="text-xs text-gray-400">{{ analysis.created_at|date:"d/m/Y H:i" }}</p>
+                    
+                    {% if analysis.status == 'completed' %}
+                    <a href="{% url 'report' analysis_id=analysis.pk %}" 
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary-dark transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        Ver
+                    </a>
+                    {% elif analysis.status == 'error' %}
+                    <a href="{% url 'upload' %}" 
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors">
+                        Tentar novamente
+                    </a>
+                    {% else %}
+                    <a href="{% url 'analysis_status' analysis_id=analysis.pk %}" 
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-primary text-xs font-medium rounded-lg hover:bg-blue-200 transition-colors">
+                        Acompanhar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-16">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-600 mb-2">Nenhuma análise ainda</h3>
+            <p class="text-gray-400 mb-4">Envie seu primeiro documento para o Joel analisar!</p>
+            <a href="{% url 'upload' %}" 
+               class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-colors">
+                Nova Análise
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

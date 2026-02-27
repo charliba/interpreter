@@ -1,0 +1,29 @@
+# === FRAMEWORK ===
+Django==5.1.5
+python-dotenv==1.2.1
+
+# === AI AGENT ===
+agno>=1.0.0
+openai>=1.50.0
+
+# === DOCUMENT PARSING ===
+docling>=2.0.0
+
+# === INTERNET SEARCH ===
+tavily-python>=0.5.0
+
+# === REPORT GENERATION ===
+reportlab>=4.0
+python-docx>=1.0.0
+openpyxl>=3.1.0
+markdown>=3.5
+bleach>=6.0
+
+# === IMAGE PROCESSING ===
+Pillow>=10.0
+
+# === UTILITIES ===
+requests>=2.31.0
+
+# === FUTURE DEPLOY ===
+gunicorn==23.0.0

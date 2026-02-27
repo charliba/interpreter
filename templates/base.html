@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Joel{% endblock %} — Joel | Interpretador de Documentos</title>
+    
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        'primary-dark': '#1d4ed8',
+                        'primary-light': '#93c5fd',
+                        accent: '#7c3aed',
+                        'accent-dark': '#6d28d9',
+                        sidebar: '#111827',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4" 
+            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" 
+            crossorigin="anonymous"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .htmx-request.htmx-indicator { display: inline-block; }
+        
+        /* Toast notification */
+        .toast {
+            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        /* Drag and drop */
+        .drop-zone.dragover {
+            border-color: #2563eb;
+            background-color: #eff6ff;
+        }
+        
+        /* Pulse animation for processing */
+        .pulse-blue {
+            animation: pulseBlue 2s infinite;
+        }
+        @keyframes pulseBlue {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Report content styling */
+        .report-content h1 { font-size: 1.5rem; font-weight: 700; color: #1e3a5f; margin: 1.5rem 0 0.5rem; }
+        .report-content h2 { font-size: 1.25rem; font-weight: 700; color: #2563eb; margin: 1.25rem 0 0.5rem; }
+        .report-content h3 { font-size: 1.1rem; font-weight: 600; color: #1e40af; margin: 1rem 0 0.5rem; }
+        .report-content p { margin: 0.5rem 0; line-height: 1.7; }
+        .report-content ul, .report-content ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+        .report-content li { margin: 0.25rem 0; }
+        .report-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .report-content th { background: #f3f4f6; padding: 0.5rem; border: 1px solid #e5e7eb; font-weight: 600; text-align: left; }
+        .report-content td { padding: 0.5rem; border: 1px solid #e5e7eb; }
+        .report-content blockquote { border-left: 4px solid #2563eb; padding: 0.5rem 1rem; margin: 1rem 0; background: #f8fafc; }
+        .report-content a { color: #2563eb; text-decoration: underline; }
+        .report-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .report-content code { background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .report-content pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="h-full bg-gray-50"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      x-data="{ sidebarOpen: false }">
+    
+    {% if user.is_authenticated %}
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        {% include "components/sidebar.html" %}
+        
+        <!-- Main content -->
+        <main class="flex-1 overflow-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    {% else %}
+        {% block content_full %}{% endblock %}
+    {% endif %}
+    
+    <!-- Toast messages -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+        {% if messages %}
+            {% for message in messages %}
+            <div class="toast px-4 py-3 rounded-lg shadow-lg text-white text-sm
+                        {% if message.tags == 'success' %}bg-green-600
+                        {% elif message.tags == 'error' %}bg-red-600
+                        {% elif message.tags == 'warning' %}bg-yellow-600
+                        {% else %}bg-blue-600{% endif %}"
+                 x-data x-init="setTimeout(() => $el.remove(), 3000)">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
